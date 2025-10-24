@@ -118,7 +118,7 @@ cp .env.example .env
 deltachat-mcp serve
 ```
 
-**Note:** This creates its own Delta Chat account and doesn't require Delta Chat desktop to be installed.
+**Note:** Creates its own Delta Chat account - no existing Delta Chat installation required!
 
 Add to your MCP client:
 

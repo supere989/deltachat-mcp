@@ -4,7 +4,7 @@ Delta Chat MCP Server - Desktop GUI Application
 Provides a user-friendly interface for managing the MCP server
 
 This application creates its own Delta Chat account and core instance.
-No existing Delta Chat installation is required.
+No existing Delta Chat installation is required - it's completely standalone.
 """
 
 import tkinter as tk
@@ -215,21 +215,18 @@ BASEDIR=./dc-data
         self.log_message("✅ Configuration saved", "info")
 
     def check_delta_chat(self):
-        """Check if Delta Chat is available"""
+        """Check if Delta Chat dependencies are available"""
         import subprocess
 
         try:
-            result = subprocess.run(['deltachat-rpc-server', '--version'],
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                self.log_message("✅ Delta Chat RPC server found", "success")
-                self.delta_status_label.config(text="🟢 Available", foreground="green")
-            else:
-                self.log_message("⚠️ Delta Chat RPC server not found in PATH", "warning")
-                self.delta_status_label.config(text="🟡 Not in PATH", foreground="orange")
-        except FileNotFoundError:
-            self.log_message("❌ Delta Chat RPC server not installed", "error")
-            self.delta_status_label.config(text="🔴 Not Installed", foreground="red")
+            # Check if Python dependencies are available
+            import deltachat_mcp
+            self.log_message("✅ Delta Chat MCP library available", "success")
+            self.delta_status_label.config(text="🟢 Ready", foreground="green")
+            self.delta_info_label.config(text="Standalone Delta Chat core")
+        except ImportError:
+            self.log_message("❌ Delta Chat MCP library not available", "error")
+            self.delta_status_label.config(text="🔴 Missing Dependencies", foreground="red")
         except Exception as e:
             self.log_message(f"❌ Error checking Delta Chat: {e}", "error")
             self.delta_status_label.config(text="🔴 Error", foreground="red")
@@ -286,54 +283,39 @@ BASEDIR=./dc-data
             import signal
             import os
 
-            # Start Delta Chat RPC server
-            self.log_message("🔄 Starting Delta Chat RPC server...", "info")
-            rpc_process = subprocess.Popen([
-                'deltachat-rpc-server',
-                '--addr', self.email_var.get(),
-                '--mail_pw', self.password_var.get()
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            # Wait a moment for RPC to start
-            time.sleep(2)
-
-            # Check if RPC started successfully
-            if rpc_process.poll() is None:
-                self.delta_connected = True
-                self.delta_status_label.config(text="🟢 Connected", foreground="green")
-                self.delta_info_label.config(text=f"Account: {self.email_var.get()}")
-                self.log_message("✅ Delta Chat RPC server connected", "success")
-            else:
-                self.log_message("❌ Delta Chat RPC server failed to start", "error")
-                return
-
-            # Start MCP server
-            self.log_message(f"🔌 Starting MCP server on port {self.port_var.get()}...", "info")
+            # Start MCP server directly (it creates its own Delta Chat instance)
+            self.log_message("🔌 Starting MCP server...", "info")
             server_process = subprocess.Popen([
                 sys.executable, '-m', 'deltachat_mcp.server'
             ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-            # Update status
-            self.server_status_label.config(text="🟢 Server Running", foreground="green")
-            self.server_url_label.config(text=f"MCP URL: http://127.0.0.1:{self.port_var.get()}")
-            self.log_message("✅ MCP server started successfully", "success")
-            self.log_message(f"🌐 Server available at: http://127.0.0.1:{self.port_var.get()}", "info")
+            # Wait a moment for server to start
+            time.sleep(2)
 
-            # Monitor processes
+            # Check if server started successfully
+            if server_process.poll() is None:
+                self.delta_connected = True
+                self.server_running = True
+                self.delta_status_label.config(text="🟢 Connected", foreground="green")
+                self.server_status_label.config(text="🟢 Server Running", foreground="green")
+                self.delta_info_label.config(text=f"Account: {self.email_var.get()}")
+                self.log_message("✅ MCP server started successfully", "success")
+                self.log_message(f"🌐 Server available at: http://127.0.0.1:{self.port_var.get()}", "info")
+            else:
+                self.log_message("❌ MCP server failed to start", "error")
+                return
+
+            # Monitor process
             while self.server_running and server_process.poll() is None:
                 time.sleep(1)
 
-                # Check MCP activity (this would be enhanced with actual MCP logging)
-                if len(self.mcp_requests) < 5:  # Simulate some activity
+                # Update activity (this would be enhanced with real MCP logging)
+                if len(self.mcp_requests) < 5:  # Simulate some activity for now
                     self.mcp_requests.append(f"MCP request at {time.strftime('%H:%M:%S')}")
                     self.activity_label.config(text=f"📊 Requests: {len(self.mcp_requests)} | Responses: {len(self.mcp_requests)}")
 
             # Cleanup
-            self.log_message("🛑 Shutting down servers...", "info")
-
-            if rpc_process.poll() is None:
-                rpc_process.terminate()
-                rpc_process.wait()
+            self.log_message("🛑 Shutting down server...", "info")
 
             if server_process.poll() is None:
                 server_process.terminate()

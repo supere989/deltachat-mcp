@@ -1,11 +1,11 @@
 #!/bin/bash
-# Delta Chat MCP Server - Easy Launcher
-# One-command launcher for development and testing
+# Delta Chat MCP Server - Development Launcher
+# Starts the MCP server directly (standalone Delta Chat architecture)
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🚀 Delta Chat MCP Server Launcher"
-echo "================================="
+echo "🚀 Delta Chat MCP Server (Development)"
+echo "======================================"
 echo ""
 
 # Check if configured
@@ -44,44 +44,12 @@ if [ $? -ne 0 ]; then
     pip install -r requirements.txt
 fi
 
-# Check Delta Chat RPC server
-if ! command -v deltachat-rpc-server &> /dev/null; then
-    echo "⚠️  Delta Chat RPC server not found!"
-    echo ""
-    echo "Please install it:"
-    echo "   pip install deltachat2"
-    echo ""
-    echo "Or install Delta Chat desktop application"
-    echo ""
-fi
-
-echo "🚀 Starting servers..."
+echo "🚀 Starting MCP server..."
 echo ""
 echo "MCP Server will be available at: http://127.0.0.1:$MCP_PORT"
 echo ""
-echo "Press Ctrl+C to stop all servers"
+echo "Press Ctrl+C to stop"
 echo ""
 
-# Function to cleanup on exit
-cleanup() {
-    echo ""
-    echo "🛑 Stopping servers..."
-    kill $RPC_PID 2>/dev/null
-    echo "✅ Done!"
-    exit 0
-}
-
-# Set trap for cleanup
-trap cleanup INT TERM
-
-# Start Delta Chat RPC server in background
-echo "🔄 Starting Delta Chat RPC server..."
-deltachat-rpc-server --addr "$DC_ADDR" --mail_pw "$DC_MAIL_PW" &
-RPC_PID=$!
-
-# Wait for RPC to initialize
-sleep 3
-
-# Start MCP server
-echo "🔌 Starting MCP server..."
-python -m deltachat_mcp.server
+# Start the server directly (creates its own Delta Chat instance)
+exec python3 -m deltachat_mcp.server

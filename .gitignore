@@ -124,7 +124,6 @@ dmypy.json
 
 # Generated configuration files (created by setup.py)
 .env
-launch.sh
 windsurf-config.json
 
 # Python build artifacts
