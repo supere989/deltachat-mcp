@@ -204,7 +204,7 @@ python configure.py
 
 **Size:** ~8.6KB | **Requirements:** Python 3.10+ only
 
-**Features:** Desktop GUI + Command Line interfaces, automatic setup, no installation required!
+**Features:** Desktop GUI + Command Line interfaces, **auto-detects Delta Chat credentials**, no installation required!
 
 ### 🖥️ **AppImage (Advanced)**
 *Self-contained application for any Linux distribution*
@@ -225,8 +225,8 @@ chmod +x deltachat-mcp-0.2.0-x86_64.AppImage
 
 ```bash
 pip install deltachat-mcp
-deltachat-setup
-deltachat-mcp serve
+deltachat-setup  # Auto-detects existing Delta Chat credentials
+deltachat-gui    # Launch GUI
 ```
 
 **Size:** Minimal | **Requirements:** Python environment
@@ -237,7 +237,7 @@ deltachat-mcp serve
 # Clone and setup
 git clone https://github.com/supere989/deltachat-mcp.git
 cd deltachat-mcp
-python configure.py
+python configure.py  # Auto-detects Delta Chat credentials
 
 # Or build distributions
 ./build-distribution.sh  # Creates all formats
