@@ -43,9 +43,15 @@ cp -r examples "${BUNDLE_NAME}/"
 cp README.md "${BUNDLE_NAME}/"
 cp configure.py "${BUNDLE_NAME}/"
 cp desktop_setup.py "${BUNDLE_NAME}/"
+cp deltachat_mcp_gui.py "${BUNDLE_NAME}/"
 cp requirements.txt "${BUNDLE_NAME}/"
 cp pyproject.toml "${BUNDLE_NAME}/"
 cp launch.sh "${BUNDLE_NAME}/"
+
+chmod +x "${BUNDLE_NAME}/configure.py"
+chmod +x "${BUNDLE_NAME}/desktop_setup.py"
+chmod +x "${BUNDLE_NAME}/deltachat_mcp_gui.py"
+chmod +x "${BUNDLE_NAME}/launch.sh"
 
 # Create portable launcher
 cat > "${BUNDLE_NAME}/run.sh" << 'EOF'
@@ -58,87 +64,31 @@ cd "$BUNDLE_DIR"
 echo "🚀 Delta Chat MCP Server (Portable)"
 echo "==================================="
 echo ""
-
-# Check Python
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 is required but not found"
-    echo "Please install Python 3 to use this portable version"
-    exit 1
-fi
-
-# Check if configured
-CONFIG_FILE="config.env"
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "🔧 First-time setup needed..."
-    echo ""
-    echo "Please enter your Delta Chat credentials:"
-    echo ""
-
-    read -p "Delta Chat email address: " DC_ADDR
-    read -s -p "Delta Chat app password: " DC_MAIL_PW
-    echo ""
-    read -p "MCP server port (default 8089): " MCP_PORT
-    MCP_PORT=${MCP_PORT:-8089}
-
-    cat > "$CONFIG_FILE" << CONFIG_EOF
-DC_ADDR=$DC_ADDR
-DC_MAIL_PW=$DC_MAIL_PW
-MCP_MODE=http
-MCP_PORT=$MCP_PORT
-BASEDIR=$BUNDLE_DIR/data
-CONFIG_EOF
-
-    echo ""
-    echo "✅ Configuration saved!"
-    echo ""
-fi
-
-# Load configuration
-set -a
-source "$CONFIG_FILE"
-set +a
-
-# Create data directory
-mkdir -p "$BASEDIR"
-
-echo "📧 Delta Chat: $DC_ADDR"
-echo "🌐 MCP Mode: $MCP_MODE"
-echo "🔌 Port: $MCP_PORT"
-echo "📁 Data: $BASEDIR"
+echo "Choose interface:"
+echo "1) 🖥️ Desktop GUI (recommended)"
+echo "2) 💻 Command Line"
 echo ""
+read -p "Enter choice (1 or 2): " choice
 
-# Install dependencies if needed
-echo "🔍 Checking dependencies..."
-python3 -c "import deltachat_mcp" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "📦 Installing dependencies..."
-    pip install -r requirements.txt
-    if [ $? -ne 0 ]; then
-        echo "⚠️  Could not install with pip. Please install manually:"
-        echo "   pip install -r requirements.txt"
-        echo ""
-    fi
-fi
-
-# Check Delta Chat RPC server
-if ! command -v deltachat-rpc-server &> /dev/null; then
-    echo "⚠️  Delta Chat RPC server not found!"
-    echo ""
-    echo "Please install Delta Chat desktop application or:"
-    echo "pip install deltachat2"
-    echo ""
-    echo "The MCP server will still work, but you may need to start"
-    echo "the RPC server manually in another terminal:"
-    echo "deltachat-rpc-server --addr \$DC_ADDR --mail_pw \$DC_MAIL_PW"
-    echo ""
-fi
-
-echo "🚀 Starting MCP server..."
-echo "Press Ctrl+C to stop"
-echo ""
-
-# Start the server
-exec python3 -m deltachat_mcp.server
+case $choice in
+    1)
+        echo "🖥️ Starting Desktop GUI..."
+        python3 deltachat_mcp_gui.py
+        ;;
+    2)
+        echo "💻 Starting Command Line Interface..."
+        if [ ! -f "config.env" ]; then
+            echo "Please run: python configure.py"
+            exit 1
+        fi
+        source config.env
+        python3 -m deltachat_mcp.server
+        ;;
+    *)
+        echo "Invalid choice. Starting GUI by default..."
+        python3 deltachat_mcp_gui.py
+        ;;
+esac
 EOF
 
 chmod +x "${BUNDLE_NAME}/run.sh"
@@ -161,10 +111,10 @@ cat > ~/.local/share/applications/\${APP_NAME}.desktop << DESKTOP_EOF
 [Desktop Entry]
 Version=1.0
 Name=Delta Chat MCP Server (Portable)
-Comment=AI-powered secure messaging with Delta Chat (Portable)
-Exec=\${BUNDLE_DIR}/run.sh
+Comment=AI-powered secure messaging with Delta Chat (Portable GUI)
+Exec=\${BUNDLE_DIR}/deltachat_mcp_gui.py
 Icon=mail
-Terminal=true
+Terminal=false
 Type=Application
 Categories=Network;Chat;AI;
 Keywords=mcp;chat;messaging;ai;delta;
@@ -188,17 +138,19 @@ This is a portable version that runs on any Linux system with Python 3.
 ## Quick Start
 
 1. **Extract**: `tar -xzf deltachat-mcp-portable-${VERSION}.tar.gz`
-2. **Configure**: `cd deltachat-mcp-portable-${VERSION} && ./run.sh`
-3. **First run**: Enter your Delta Chat credentials when prompted
-4. **Desktop integration** (optional): `./install-desktop.sh`
+2. **Run**: `cd deltachat-mcp-portable-${VERSION} && ./run.sh`
+3. **Choose Interface**: Select GUI (recommended) or Command Line
+4. **First run**: Enter your Delta Chat credentials when prompted
+5. **Desktop integration** (optional): `./install-desktop.sh`
 
-## What's Included
+## Features
 
-- ✅ Complete MCP server implementation
-- ✅ Automatic dependency installation
-- ✅ First-run configuration wizard
-- ✅ Desktop launcher creation
-- ✅ No system installation required
+- ✅ **Desktop GUI Application** - User-friendly interface with real-time monitoring
+- ✅ **Command Line Interface** - Traditional terminal-based operation
+- ✅ **Automatic dependency installation**
+- ✅ **First-run configuration wizard**
+- ✅ **Desktop launcher creation**
+- ✅ **No system installation required**
 
 ## Requirements
 
@@ -207,7 +159,8 @@ This is a portable version that runs on any Linux system with Python 3.
 
 ## Files
 
-- \`run.sh\` - Main launcher script
+- \`run.sh\` - Main launcher with GUI/CLI selection
+- \`deltachat_mcp_gui.py\` - Desktop GUI application
 - \`install-desktop.sh\` - Desktop integration
 - \`deltachat_mcp/\` - Python source code
 - \`examples/\` - Usage examples

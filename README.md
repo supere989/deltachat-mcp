@@ -14,8 +14,39 @@
 - Send messages to any email
 - List chats & unread count
 - Read recent messages
+- **🖥️ Desktop GUI Application** - Real-time monitoring and configuration
 - Works with **Claude Desktop**, **Cursor**, **Windsurf**, **mcp-client-app**
 - Zero plaintext exposure (Autocrypt E2EE)
+
+---
+
+## 🖥️ **Desktop GUI Application (Recommended)**
+
+The easiest way to use Delta Chat MCP Server! A beautiful desktop application with:
+
+- 📊 **Real-time Status Monitoring** - See server and Delta Chat connection status
+- 🔐 **Secure Configuration** - Easy setup with credential validation
+- 📝 **Live MCP Logging** - Monitor all AI interactions and requests
+- ⚙️ **Configuration Management** - Change settings without editing files
+- 🚀 **One-click Start/Stop** - Simple server control
+- 🌐 **MCP Client Integration** - Ready-to-use connection settings
+
+### Launch the GUI
+
+```bash
+# After setup, launch the desktop application
+deltachat-gui
+
+# Or from the portable bundle
+./run.sh  # Choose GUI option
+```
+
+**Features:**
+- ✅ **User-friendly interface** with tabs for Status, Configuration, and Logs
+- ✅ **Real-time monitoring** of MCP requests and responses
+- ✅ **Visual status indicators** for server and Delta Chat connections
+- ✅ **Interactive configuration** with validation and testing
+- ✅ **Desktop integration** - appears in your applications menu
 
 ---
 
@@ -33,25 +64,41 @@ That's it! The setup script will:
 - ✅ Install all dependencies
 - ✅ Create Windsurf configuration
 - ✅ Generate launcher script
+- ✅ Set up desktop GUI application
+
+**Then simply run:**
+```bash
+deltachat-gui  # Launch the desktop application!
+```
 
 ---
 
 ## 🖥️ Daily Usage
 
-After setup, simply run:
+**Desktop GUI (Recommended):**
+```bash
+deltachat-gui  # Beautiful desktop application
+```
 
+**Command Line:**
 ```bash
 # Start the server (includes both Delta Chat and MCP)
 ./launch.sh
 
-# Or use the installed command
+# Or use the installed commands
 deltachat-mcp serve
+deltachat-setup  # Reconfigure settings
+deltachat-desktop  # Desktop integration
+```
+
+**From Portable Bundle:**
+```bash
+./run.sh  # Choose GUI or CLI interface
 ```
 
 The setup script generates:
 - **`.env`** - Your configuration
 - **`launch.sh`** - Easy server launcher
-- **`windsurf-config.json`** - Ready-to-use Windsurf config
 
 ---
 
@@ -144,7 +191,9 @@ python configure.py
 ./run.sh
 ```
 
-**Size:** ~7KB | **Requirements:** Python 3 + Delta Chat RPC server
+**Size:** ~8.6KB | **Requirements:** Python 3 + Delta Chat RPC server
+
+**Features:** Desktop GUI + Command Line interfaces, automatic setup, no installation required!
 
 ### 🖥️ **AppImage (Advanced)**
 *Self-contained application for any Linux distribution*
@@ -187,6 +236,7 @@ python configure.py
 ### 🔧 **Build Scripts Available**
 
 - **`./configure.py`** - Interactive setup wizard
+- **`./deltachat_mcp_gui.py`** - Desktop GUI application
 - **`./build-portable.sh`** - Create portable tarball
 - **`./build-appimage.sh`** - Create AppImage (requires PyInstaller)
 - **`./build-distribution.sh`** - Create all distribution formats

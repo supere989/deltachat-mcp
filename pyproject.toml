@@ -20,6 +20,7 @@ dev = ["pytest", "pytest-asyncio", "black", "ruff"]
 deltachat-mcp = "deltachat_mcp.server:main"
 deltachat-setup = "configure:main"
 deltachat-desktop = "desktop_setup:main"
+deltachat-gui = "deltachat_mcp_gui:main"
 
 [build-system]
 requires = ["setuptools>=65", "wheel"]

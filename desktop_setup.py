@@ -22,12 +22,12 @@ def create_desktop_launcher():
     desktop_content = f"""[Desktop Entry]
 Version=1.0
 Name=Delta Chat MCP Server
-Comment=Start Delta Chat MCP server for AI integration
-Exec={current_dir}/launch.sh
+Comment=AI-powered secure messaging with Delta Chat (Desktop GUI)
+Exec={current_dir}/deltachat_mcp_gui.py
 Icon=mail
-Terminal=true
+Terminal=false
 Type=Application
-Categories=Network;Chat;
+Categories=Network;Chat;AI;
 StartupNotify=true
 """
 

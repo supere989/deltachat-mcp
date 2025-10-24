@@ -23,6 +23,7 @@ cp -r examples "${BUNDLE_NAME}/"
 cp README.md "${BUNDLE_NAME}/"
 cp configure.py "${BUNDLE_NAME}/"
 cp desktop_setup.py "${BUNDLE_NAME}/"
+cp deltachat_mcp_gui.py "${BUNDLE_NAME}/"
 cp requirements.txt "${BUNDLE_NAME}/"
 cp pyproject.toml "${BUNDLE_NAME}/"
 cp launch.sh "${BUNDLE_NAME}/"
@@ -30,6 +31,7 @@ cp launch.sh "${BUNDLE_NAME}/"
 # Make scripts executable in the bundle
 chmod +x "${BUNDLE_NAME}/configure.py"
 chmod +x "${BUNDLE_NAME}/desktop_setup.py"
+chmod +x "${BUNDLE_NAME}/deltachat_mcp_gui.py"
 chmod +x "${BUNDLE_NAME}/launch.sh"
 
 # Create the run.sh script
@@ -39,22 +41,31 @@ cat > "${BUNDLE_NAME}/run.sh" << 'EOF'
 
 echo "🚀 Delta Chat MCP Server (Portable)"
 echo ""
+echo "Choose interface:"
+echo "1) 🖥️ Desktop GUI (recommended)"
+echo "2) 💻 Command Line"
+echo ""
+read -p "Enter choice (1 or 2): " choice
 
-# Check Python
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 required"
-    exit 1
-fi
-
-# Configuration
-if [ ! -f "config.env" ]; then
-    echo "Please run: python configure.py"
-    exit 1
-fi
-
-# Load config and start
-source config.env
-python3 -m deltachat_mcp.server
+case $choice in
+    1)
+        echo "🖥️ Starting Desktop GUI..."
+        python3 deltachat_mcp_gui.py
+        ;;
+    2)
+        echo "💻 Starting Command Line Interface..."
+        if [ ! -f "config.env" ]; then
+            echo "Please run: python configure.py"
+            exit 1
+        fi
+        source config.env
+        python3 -m deltachat_mcp.server
+        ;;
+    *)
+        echo "Invalid choice. Starting GUI by default..."
+        python3 deltachat_mcp_gui.py
+        ;;
+esac
 EOF
 
 chmod +x "${BUNDLE_NAME}/run.sh"
