@@ -34,8 +34,11 @@ class DeltaChatMCPServer:
         # Setup UI
         self.setup_ui()
 
-        # Load configuration
+        # Load configuration (try auto-detection first)
         self.load_config()
+
+        # Try to auto-detect Delta Chat credentials
+        self.auto_detect_credentials()
 
         # Check Delta Chat availability
         self.check_delta_chat()
@@ -214,19 +217,45 @@ BASEDIR=./dc-data
         self.delta_info_label.config(text=f"Account: {self.email_var.get()}")
         self.log_message("✅ Configuration saved", "info")
 
-    def check_delta_chat(self):
-        """Check if Delta Chat dependencies are available"""
-        import subprocess
-
+    def auto_detect_credentials(self):
+        """Auto-detect Delta Chat credentials and update UI"""
         try:
-            # Check if Python dependencies are available
-            import deltachat_mcp
-            self.log_message("✅ Delta Chat MCP library available", "success")
-            self.delta_status_label.config(text="🟢 Ready", foreground="green")
-            self.delta_info_label.config(text="Standalone Delta Chat core")
-        except ImportError:
-            self.log_message("❌ Delta Chat MCP library not available", "error")
-            self.delta_status_label.config(text="🔴 Missing Dependencies", foreground="red")
+            # Import here to avoid circular imports
+            from .config import Config
+
+            if Config.DC_ADDR and Config.DC_MAIL_PW:
+                # Update UI with detected credentials
+                self.email_var.set(Config.DC_ADDR)
+                self.password_var.set(Config.DC_MAIL_PW)
+
+                # Update status
+                self.delta_info_label.config(text=f"Account: {Config.DC_ADDR} (Auto-detected)")
+                self.log_message(f"✅ Auto-detected Delta Chat credentials: {Config.DC_ADDR}", "success")
+
+                # Save to .env for persistence
+                self.save_config()
+            else:
+                self.log_message("🔍 No existing Delta Chat credentials found", "warning")
+                self.delta_info_label.config(text="Account: Please configure manually")
+
+        except Exception as e:
+            self.log_message(f"❌ Error auto-detecting credentials: {e}", "error")
+
+    def check_delta_chat(self):
+        """Check if Delta Chat configuration is available"""
+        try:
+            # Import here to avoid circular imports
+            from .config import Config
+
+            if Config.DC_ADDR and Config.DC_MAIL_PW:
+                self.log_message("✅ Delta Chat credentials configured", "success")
+                self.delta_status_label.config(text="🟢 Configured", foreground="green")
+                self.delta_info_label.config(text=f"Account: {Config.DC_ADDR}")
+            else:
+                self.log_message("⚠️ Delta Chat credentials not found", "warning")
+                self.delta_status_label.config(text="🟡 Not Configured", foreground="orange")
+                self.delta_info_label.config(text="Account: Please configure")
+
         except Exception as e:
             self.log_message(f"❌ Error checking Delta Chat: {e}", "error")
             self.delta_status_label.config(text="🔴 Error", foreground="red")

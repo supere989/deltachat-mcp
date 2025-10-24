@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/deltachat-mcp)](https://pypi.org/project/deltachat-mcp/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> **Standalone Delta Chat client** with MCP interface — privacy-first, E2EE, decentralized. **Compatible with latest MCP SDK v1.19.0**.
+> **Standalone Delta Chat client** with MCP interface — privacy-first, E2EE, decentralized. **Auto-detects your existing Delta Chat configuration!** **Compatible with latest MCP SDK v1.19.0**.
 
 ---
 
@@ -26,29 +26,39 @@ The easiest way to use Delta Chat MCP Server! A beautiful desktop application wi
 
 - 📊 **Real-time Status Monitoring** - See server and Delta Chat connection status
 - 🔐 **Secure Configuration** - Easy setup with credential validation
+- 🔍 **Auto-Detection** - Automatically finds your existing Delta Chat credentials
 - 📝 **Live MCP Logging** - Monitor all AI interactions and requests
 - ⚙️ **Configuration Management** - Change settings without editing files
 - 🚀 **One-click Start/Stop** - Simple server control
 - 🌐 **MCP Client Integration** - Ready-to-use connection settings
 
-**Architecture:** Creates its own Delta Chat account - no existing Delta Chat installation required!
+**Architecture:** Auto-detects existing Delta Chat configuration - seamless integration!
 
-### Launch the GUI
+---
 
-```bash
-# After setup, launch the desktop application
-deltachat-gui
+## 🔍 **Auto-Detection Feature**
 
-# Or from the portable bundle
-./run.sh  # Choose GUI option
-```
+The application automatically detects and uses your existing Delta Chat configuration:
 
-**Features:**
-- ✅ **User-friendly interface** with tabs for Status, Configuration, and Logs
-- ✅ **Real-time monitoring** of MCP requests and responses
-- ✅ **Visual status indicators** for server and Delta Chat connections
-- ✅ **Interactive configuration** with validation and testing
-- ✅ **Desktop integration** - appears in your applications menu
+### ✅ **What It Finds:**
+- **Delta Chat databases** in standard locations (`~/.config/deltachat`, `~/.deltachat`, etc.)
+- **Account credentials** (email, password, data directory)
+- **Existing chat data** and contact information
+- **Configuration settings** from your local Delta Chat client
+
+### 🚀 **How It Works:**
+1. **Scans** your system for Delta Chat databases
+2. **Validates** database structure and credentials
+3. **Auto-configures** the MCP server with your existing account
+4. **Preserves** all your chat history and contacts
+5. **Integrates** seamlessly with your current Delta Chat setup
+
+### 💡 **Benefits:**
+- ✅ **Zero configuration** if you already use Delta Chat
+- ✅ **Preserves chat history** and contacts
+- ✅ **No duplicate accounts** or data
+- ✅ **Seamless integration** with existing workflow
+- ✅ **Automatic updates** when you change Delta Chat settings
 
 ---
 
@@ -62,7 +72,7 @@ python configure.py
 ```
 
 That's it! The setup script will:
-- ✅ Configure your Delta Chat credentials
+- ✅ **Auto-detect existing Delta Chat credentials** from your local installation
 - ✅ Install all dependencies
 - ✅ Create Windsurf configuration
 - ✅ Generate launcher script
@@ -110,15 +120,15 @@ The setup script generates:
 # 1. Install
 pip install deltachat-mcp
 
-# 2. Copy config
+# 2. Copy config (auto-detects from existing Delta Chat)
 cp .env.example .env
-# Edit .env with your email + app password
+# Edit .env with your email + app password (if auto-detection fails)
 
 # 3. Run MCP server (creates its own Delta Chat instance)
 deltachat-mcp serve
 ```
 
-**Note:** Creates its own Delta Chat account - no existing Delta Chat installation required!
+**Note:** The application automatically detects and uses credentials from your existing Delta Chat installation!
 
 Add to your MCP client:
 

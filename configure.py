@@ -10,6 +10,13 @@ import subprocess
 import json
 from pathlib import Path
 
+# Import config for auto-detection
+try:
+    from deltachat_mcp.config import Config
+except ImportError:
+    # Fallback if not installed yet
+    Config = None
+
 def run_command(cmd, cwd=None):
     """Run a command and return success status"""
     try:
@@ -47,7 +54,17 @@ def setup_environment():
     """Set up the environment and configuration"""
     print("🔧 Setting up environment...")
 
-    # Create .env file if it doesn't exist
+    # Try to auto-detect Delta Chat credentials first
+    print("🔍 Checking for existing Delta Chat configuration...")
+    if Config and Config.DC_ADDR and Config.DC_MAIL_PW:
+        print(f"✅ Found existing Delta Chat account: {Config.DC_ADDR}")
+        print(f"   Using data directory: {Config.BASEDIR}")
+        use_existing = input("Use existing credentials? (Y/n): ").strip().lower()
+        if use_existing in ['', 'y', 'yes']:
+            print("✅ Using existing Delta Chat credentials")
+            return
+
+    # Create .env file if it doesn't exist or user wants manual setup
     env_file = Path(".env")
     if not env_file.exists():
         print("📝 Creating .env configuration file...")
@@ -211,17 +228,26 @@ def show_success_message():
     print("🎉 SETUP COMPLETE!")
     print("="*50)
     print()
+
+    # Check if we used auto-detection
+    if Config and Config.DC_ADDR and Config.DC_MAIL_PW:
+        print("✅ Using auto-detected Delta Chat credentials")
+        print(f"   Email: {Config.DC_ADDR}")
+        print(f"   Data: {Config.BASEDIR}")
+    else:
+        print("✅ Manual configuration completed")
+
+    print()
     print("📋 Next Steps:")
     print()
-    print("1️⃣  Start the server:")
+    print("1️⃣  Start the GUI:")
+    print("   python3 deltachat_mcp_gui.py")
+    print()
+    print("2️⃣  Or start the server:")
     print("   ./launch.sh")
     print()
-    print("2️⃣  Add to Windsurf:")
-    print("   Copy the configuration from windsurf-config.json")
-    print("   to Windsurf's MCP settings")
-    print()
-    print("3️⃣  Test the connection:")
-    print("   The server will be available at: http://127.0.0.1:8089")
+    print("3️⃣  Add to MCP clients:")
+    print("   Server will be available at: http://127.0.0.1:8089")
     print()
     print("🛠️  Available tools:")
     print("   - deltachat.send_message()")
