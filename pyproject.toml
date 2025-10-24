@@ -18,6 +18,8 @@ dev = ["pytest", "pytest-asyncio", "black", "ruff"]
 
 [project.scripts]
 deltachat-mcp = "deltachat_mcp.server:main"
+deltachat-setup = "configure:main"
+deltachat-desktop = "desktop_setup:main"
 
 [build-system]
 requires = ["setuptools>=65", "wheel"]

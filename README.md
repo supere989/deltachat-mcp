@@ -19,7 +19,43 @@
 
 ---
 
-## Quick Start
+## 🚀 Quick Start (One Command!)
+
+```bash
+# 1. Clone and setup in one command
+git clone https://github.com/supere989/deltachat-mcp.git
+cd deltachat-mcp
+python configure.py
+```
+
+That's it! The setup script will:
+- ✅ Configure your Delta Chat credentials
+- ✅ Install all dependencies
+- ✅ Create Windsurf configuration
+- ✅ Generate launcher script
+
+---
+
+## 🖥️ Daily Usage
+
+After setup, simply run:
+
+```bash
+# Start the server (includes both Delta Chat and MCP)
+./launch.sh
+
+# Or use the installed command
+deltachat-mcp serve
+```
+
+The setup script generates:
+- **`.env`** - Your configuration
+- **`launch.sh`** - Easy server launcher
+- **`windsurf-config.json`** - Ready-to-use Windsurf config
+
+---
+
+## Manual Setup (Alternative)
 
 ```bash
 # 1. Install
@@ -43,6 +79,32 @@ Add to your MCP client:
   "name": "deltachat",
   "url": "http://127.0.0.1:8089"
 }
+```
+
+---
+
+## 🖥️ Desktop Integration (Optional)
+
+For easier access, run:
+
+```bash
+# Create desktop launcher and system integration
+./desktop-setup.sh
+```
+
+This adds:
+- 🖥️ **Desktop shortcut** in your applications menu
+- ⚡ **System service** option (if supported)
+- 🚀 **One-click startup** from your desktop environment
+
+---
+
+## 📦 One-Line Installation
+
+```bash
+# Install directly from GitHub (without cloning)
+pip install git+https://github.com/supere989/deltachat-mcp.git
+deltachat-setup
 ```
 
 ---

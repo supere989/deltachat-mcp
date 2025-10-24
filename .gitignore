@@ -122,6 +122,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Generated configuration files (created by setup.py)
+.env
+launch.sh
+windsurf-config.json
+
 # Delta Chat data
 dc-data/
 *.db
