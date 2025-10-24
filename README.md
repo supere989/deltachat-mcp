@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/deltachat-mcp)](https://pypi.org/project/deltachat-mcp/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> **Standalone Delta Chat client** with MCP interface — privacy-first, E2EE, decentralized. **Auto-detects your existing Delta Chat configuration!** **Compatible with latest MCP SDK v1.19.0**.
+> **Multi-device Delta Chat integration** with MCP interface — privacy-first, E2EE, decentralized. **Auto-detects your existing Delta Chat configuration!** **Compatible with latest MCP SDK v1.19.0**.
 
 ---
 
@@ -15,6 +15,7 @@
 - List chats & unread count
 - Read recent messages
 - **🖥️ Desktop GUI Application** - Real-time monitoring and configuration
+- **📱 Second Device Registration** - Multi-device Delta Chat integration
 - Works with **Claude Desktop**, **Cursor**, **Windsurf**, **mcp-client-app**
 - Zero plaintext exposure (Autocrypt E2EE)
 
