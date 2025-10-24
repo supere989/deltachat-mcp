@@ -35,6 +35,38 @@ The easiest way to use Delta Chat MCP Server! A beautiful desktop application wi
 
 **Architecture:** Auto-detects existing Delta Chat configuration - seamless integration!
 
+### 🚀 **Quick Pairing Setup:**
+
+**For Active Pairing (Recommended):**
+```bash
+# 1. On your Delta Chat desktop: Settings → Add Second Device
+# 2. Copy the backup string that starts with "DCBACKUP3:"
+# 3. Run the setup script
+python configure.py
+# Choose option 3: "Second device setup (using backup string)"
+# Paste the backup string when prompted
+
+# 4. Start the GUI
+deltachat-gui
+# Go to Configuration tab → "Register as Second Device" → Start Server
+```
+
+**Manual Pairing:**
+```bash
+# Set backup string in .env file
+echo "BACKUP_STRING=DCBACKUP3:s5R3-kqQ0zY_8GrvTp2DKPAo&{\"node_id\":\"bf913557345c5a9533937d2ec040579f60985d36034be5ceb0f2547c1bb676e5\",\"relay_url\":null,\"direct_addresses\":[\"10.150.1.8:42654\",\"10.150.2.10:42654\",\"172.17.0.1:42654\",\"172.18.0.1:42654\",\"172.19.0.1:42654\",\"172.20.0.1:42654\",\"192.168.5.1:42654\"]}" >> .env
+
+# Start server (will connect to primary device)
+deltachat-gui
+```
+
+**🔧 What Happens During Pairing:**
+1. **Connection:** MCP server connects to primary device via WebSocket
+2. **Authentication:** Sends pairing request with node_id verification
+3. **Handshake:** Completes secure multi-device authentication
+4. **Sync:** Establishes real-time synchronization with primary device
+5. **Ready:** Full access to all chats and contacts from primary device
+
 ---
 
 ## 🔍 **Auto-Detection Feature**
