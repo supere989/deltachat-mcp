@@ -37,8 +37,10 @@ class DeltaChatMCPServer:
         # Load configuration (try auto-detection first)
         self.load_config()
 
-        # Try to auto-detect Delta Chat credentials
-        self.auto_detect_credentials()
+        # Check if this is a paired device
+        self.is_paired = False
+        self.pairing_info = None
+        self.check_pairing_status()
 
         # Check Delta Chat availability
         self.check_delta_chat()
@@ -86,12 +88,9 @@ class DeltaChatMCPServer:
         self.delta_info_label = ttk.Label(delta_frame, text="Account: Not configured", font=("Arial", 10))
         self.delta_info_label.pack(anchor=tk.W)
 
-        # MCP Activity
-        activity_frame = ttk.LabelFrame(status_frame, text="MCP Activity", padding=10)
-        activity_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        self.activity_label = ttk.Label(activity_frame, text="📊 Requests: 0 | Responses: 0", font=("Arial", 10))
-        self.activity_label.pack(anchor=tk.W)
+        # Pairing status
+        self.pairing_status_label = ttk.Label(delta_frame, text="📱 Pairing: Not paired", foreground="gray")
+        self.pairing_status_label.pack(anchor=tk.W)
 
     def create_config_tab(self):
         """Create the configuration tab"""
@@ -217,8 +216,11 @@ class DeltaChatMCPServer:
             success = Config.register_second_device(backup_text)
             if success:
                 self.log_message(f"✅ Registered as second device: {Config.BACKUP_INFO['node_id']}", "success")
-                self.delta_info_label.config(text=f"Account: Second Device ({Config.BACKUP_INFO['node_id'][:8]}...)")
+                self.delta_info_label.config(text=f"Account: Paired Device ({Config.BACKUP_INFO['node_id'][:8]}...)")
+                self.pairing_status_label.config(text=f"📱 Pairing: Connected ({Config.BACKUP_INFO['node_id'][:8]}...)", foreground="green")
                 self.save_config()  # Save the backup string to config file
+                self.is_paired = True
+                self.pairing_info = Config.BACKUP_INFO
             else:
                 self.log_message("❌ Failed to register as second device", "error")
 
@@ -243,233 +245,6 @@ class DeltaChatMCPServer:
                     elif line.startswith('BACKUP_STRING='):
                         self.backup_entry.delete("1.0", tk.END)
                         self.backup_entry.insert("1.0", line.split('=', 1)[1])
-
-    def save_config(self):
-        """Save configuration to file"""
-        backup_text = self.backup_entry.get("1.0", tk.END).strip()
-
-        config_content = f"""DC_ADDR={self.email_var.get()}
-DC_MAIL_PW={self.password_var.get()}
-MCP_MODE={self.mode_var.get()}
-MCP_PORT={self.port_var.get()}
-BASEDIR=./dc-data
-"""
-
-    if backup_text:
-        config_content += f"BACKUP_STRING={backup_text}\n"
-
-    self.config_file.write_text(config_content)
-
-    # Update status
-    if hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE:
-        self.delta_info_label.config(text=f"Account: Second Device ({Config.BACKUP_INFO['node_id'][:8]}...)")
-        self.log_message(f"✅ Second device registered: {Config.BACKUP_INFO['node_id']}", "success")
-    else:
-        self.delta_info_label.config(text=f"Account: {self.email_var.get()}")
-        self.log_message("✅ Configuration saved", "info")
-
-    def auto_detect_credentials(self):
-        """Auto-detect Delta Chat credentials and update UI"""
-        try:
-            # Import here to avoid circular imports
-            from .config import Config
-
-            if Config.DC_ADDR and Config.DC_MAIL_PW:
-                # Update UI with detected credentials
-                self.email_var.set(Config.DC_ADDR)
-                self.password_var.set(Config.DC_MAIL_PW)
-
-                # Update status
-                self.delta_info_label.config(text=f"Account: {Config.DC_ADDR} (Auto-detected)")
-                self.log_message(f"✅ Auto-detected Delta Chat credentials: {Config.DC_ADDR}", "success")
-
-                # Save to .env for persistence
-                self.save_config()
-            else:
-                self.log_message("🔍 No existing Delta Chat credentials found", "warning")
-                self.delta_info_label.config(text="Account: Please configure manually")
-
-        except Exception as e:
-            self.log_message(f"❌ Error auto-detecting credentials: {e}", "error")
-
-    def check_delta_chat(self):
-        """Check if Delta Chat configuration is available"""
-        try:
-            # Import here to avoid circular imports
-            from .config import Config
-
-            if Config.DC_ADDR and Config.DC_MAIL_PW:
-                self.log_message("✅ Delta Chat credentials configured", "success")
-                self.delta_status_label.config(text="🟢 Configured", foreground="green")
-                self.delta_info_label.config(text=f"Account: {Config.DC_ADDR}")
-            else:
-                self.log_message("⚠️ Delta Chat credentials not found", "warning")
-                self.delta_status_label.config(text="🟡 Not Configured", foreground="orange")
-                self.delta_info_label.config(text="Account: Please configure")
-
-        except Exception as e:
-            self.log_message(f"❌ Error checking Delta Chat: {e}", "error")
-            self.delta_status_label.config(text="🔴 Error", foreground="red")
-
-    def test_connection(self):
-        """Test Delta Chat connection"""
-        self.log_message("🔍 Testing Delta Chat connection...", "info")
-
-        # Import here to avoid circular imports
-        from .config import Config
-
-        # Check if we have valid configuration
-        has_credentials = (self.email_var.get() and self.password_var.get())
-        has_second_device = (hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE)
-
-        if not (has_credentials or has_second_device):
-            self.log_message("❌ Please configure Delta Chat credentials", "error")
-            return
-
-        if has_second_device:
-            self.log_message("✅ Second device configuration looks good", "success")
-            messagebox.showinfo("Test Result", "Second device configuration is valid!\n\nClick 'Start Server' to begin.")
-        else:
-            self.log_message("✅ Configuration looks good", "success")
-            messagebox.showinfo("Test Result", "Configuration saved successfully!\n\nClick 'Start Server' to begin.")
-
-    def start_server(self):
-        """Start the MCP server"""
-        # Import here to avoid circular imports
-        from .config import Config
-
-        # Check if we have valid configuration (either regular credentials or second device)
-        has_credentials = (self.email_var.get() and self.password_var.get())
-        has_second_device = (hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE)
-
-        if not (has_credentials or has_second_device):
-            messagebox.showerror("Configuration Error", "Please configure Delta Chat credentials in the Configuration tab.")
-            self.notebook.select(1)  # Switch to config tab
-            return
-
-        self.server_running = True
-        self.start_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
-
-        self.server_status_label.config(text="🟢 Server Starting...", foreground="orange")
-        self.log_message("🚀 Starting Delta Chat MCP Server...", "info")
-
-        # Start server in background thread
-        threading.Thread(target=self.run_server, daemon=True).start()
-
-    def stop_server(self):
-        """Stop the MCP server"""
-        self.server_running = False
-        self.start_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.DISABLED)
-
-        self.server_status_label.config(text="🔴 Server Stopping...", foreground="orange")
-        self.log_message("⏹️ Stopping Delta Chat MCP Server...", "info")
-
-        # Give it a moment to stop gracefully
-        time.sleep(1)
-        self.server_status_label.config(text="🔴 Server Stopped", foreground="red")
-        self.log_message("✅ Server stopped", "success")
-
-    def run_server(self):
-        """Run the MCP server (background thread)"""
-        try:
-            # Import here to avoid GUI blocking
-            import subprocess
-            import signal
-            import os
-
-            # Start MCP server directly (it creates its own Delta Chat instance)
-            self.log_message("🔌 Starting MCP server...", "info")
-            server_process = subprocess.Popen([
-                sys.executable, '-m', 'deltachat_mcp.server'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            # Wait a moment for server to start
-            time.sleep(2)
-
-            # Check if server started successfully
-            if server_process.poll() is None:
-                self.delta_connected = True
-                self.server_running = True
-                self.delta_status_label.config(text="🟢 Connected", foreground="green")
-                self.server_status_label.config(text="🟢 Server Running", foreground="green")
-                self.delta_info_label.config(text=f"Account: {self.email_var.get()}")
-                self.log_message("✅ MCP server started successfully", "success")
-                self.log_message(f"🌐 Server available at: http://127.0.0.1:{self.port_var.get()}", "info")
-            else:
-                self.log_message("❌ MCP server failed to start", "error")
-                return
-
-            # Monitor process
-            while self.server_running and server_process.poll() is None:
-                time.sleep(1)
-
-                # Update activity (this would be enhanced with real MCP logging)
-                if len(self.mcp_requests) < 5:  # Simulate some activity for now
-                    self.mcp_requests.append(f"MCP request at {time.strftime('%H:%M:%S')}")
-                    self.activity_label.config(text=f"📊 Requests: {len(self.mcp_requests)} | Responses: {len(self.mcp_requests)}")
-
-            # Cleanup
-            self.log_message("🛑 Shutting down server...", "info")
-
-            if server_process.poll() is None:
-                server_process.terminate()
-                server_process.wait()
-
-        except Exception as e:
-            self.log_message(f"❌ Server error: {e}", "error")
-            self.server_status_label.config(text="🔴 Server Error", foreground="red")
-        finally:
-            self.server_running = False
-            self.delta_connected = False
-            self.delta_status_label.config(text="🔴 Disconnected", foreground="red")
-            self.server_status_label.config(text="🔴 Server Stopped", foreground="red")
-
-    def log_message(self, message, level="info"):
-        """Add message to log"""
-        timestamp = time.strftime("%H:%M:%S")
-        log_entry = f"[{timestamp}] {message}"
-
-        # Color coding
-        if level == "error":
-            log_entry = f"[{timestamp}] ❌ {message}"
-        elif level == "warning":
-            log_entry = f"[{timestamp}] ⚠️ {message}"
-        elif level == "success":
-            log_entry = f"[{timestamp}] ✅ {message}"
-
-        # Add to log text
-        self.log_text.insert(tk.END, log_entry + "\n")
-        self.log_text.see(tk.END)
-
-        # Limit log size
-        if self.log_text.get(1.0, tk.END).count('\n') > 1000:
-            self.log_text.delete(1.0, 5.0)
-
-    def clear_logs(self):
-        """Clear the log display"""
-        self.log_text.delete(1.0, tk.END)
-        self.log_message("📝 Logs cleared", "info")
-
-    def run(self):
-        """Start the GUI application"""
-        # Set up periodic updates
-        self.update_status()
-
-        # Start the GUI
-        self.root.mainloop()
-
-    def update_status(self):
-        """Update status display (called periodically)"""
-        if self.server_running:
-            # Update activity counter
-            if hasattr(self, 'activity_label'):
-                self.activity_label.config(text=f"📊 Requests: {len(self.mcp_requests)} | Responses: {len(self.mcp_requests)}")
-
-        # Schedule next update
-        if self.server_running:
-            self.root.after(1000, self.update_status)
 
 
 def main():

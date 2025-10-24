@@ -54,20 +54,20 @@ The application automatically detects and uses your existing Delta Chat configur
 4. **Preserves** all your chat history and contacts
 5. **Integrates** seamlessly with your current Delta Chat setup
 
-### 📱 **Second Device Support:**
-The application also supports registering as a **second device** using Delta Chat's backup string:
+### 📱 **Second Device Pairing:**
+The application supports **active pairing** with Delta Chat desktop clients:
 
-1. **On your primary device:** Settings → Add Second Device
-2. **Copy the backup string** that starts with `DCBACKUP3:`
-3. **Paste it in the GUI** or use during setup
-4. **Automatic registration** as a second device with full sync
+1. **On Primary Device:** Settings → Add Second Device → Generate backup string
+2. **Copy the backup string** starting with `DCBACKUP3:`
+3. **In MCP GUI:** Configuration tab → Paste backup string → "Register as Second Device"
+4. **Complete pairing** - establishes WebSocket connection and handshake
+5. **Sync data** - automatically syncs chats and contacts from primary device
 
-### 💡 **Benefits:**
-- ✅ **Zero configuration** if you already use Delta Chat
-- ✅ **Preserves chat history** and contacts
-- ✅ **No duplicate accounts** or data
-- ✅ **Seamless integration** with existing workflow
-- ✅ **Multi-device support** with second device registration
+**🔧 Pairing Process:**
+- ✅ **WebSocket Connection** to primary device endpoints
+- ✅ **Handshake Authentication** using node_id verification
+- ✅ **Multi-device Sync** with real-time data synchronization
+- ✅ **Secure Connection** via encrypted WebSocket protocol
 
 ---
 
