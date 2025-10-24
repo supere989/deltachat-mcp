@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/deltachat-mcp)](https://pypi.org/project/deltachat-mcp/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> First MCP server for **Delta Chat** — privacy-first, E2EE, decentralized. **Compatible with latest MCP SDK v1.19.0**.
+> **Standalone Delta Chat client** with MCP interface — privacy-first, E2EE, decentralized. **Compatible with latest MCP SDK v1.19.0**.
 
 ---
 
@@ -30,6 +30,8 @@ The easiest way to use Delta Chat MCP Server! A beautiful desktop application wi
 - ⚙️ **Configuration Management** - Change settings without editing files
 - 🚀 **One-click Start/Stop** - Simple server control
 - 🌐 **MCP Client Integration** - Ready-to-use connection settings
+
+**Architecture:** Creates its own Delta Chat account - no existing Delta Chat installation required!
 
 ### Launch the GUI
 
@@ -112,12 +114,11 @@ pip install deltachat-mcp
 cp .env.example .env
 # Edit .env with your email + app password
 
-# 3. Start Delta Chat RPC server
-deltachat-rpc-server --addr $DC_ADDR --mail_pw $DC_MAIL_PW &
-
-# 4. Run MCP server
+# 3. Run MCP server (creates its own Delta Chat instance)
 deltachat-mcp serve
 ```
+
+**Note:** This creates its own Delta Chat account and doesn't require Delta Chat desktop to be installed.
 
 Add to your MCP client:
 
@@ -191,7 +192,7 @@ python configure.py
 ./run.sh
 ```
 
-**Size:** ~8.6KB | **Requirements:** Python 3 + Delta Chat RPC server
+**Size:** ~8.6KB | **Requirements:** Python 3.10+ only
 
 **Features:** Desktop GUI + Command Line interfaces, automatic setup, no installation required!
 

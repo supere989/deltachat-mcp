@@ -2,6 +2,9 @@
 """
 Delta Chat MCP Server - Desktop GUI Application
 Provides a user-friendly interface for managing the MCP server
+
+This application creates its own Delta Chat account and core instance.
+No existing Delta Chat installation is required.
 """
 
 import tkinter as tk
