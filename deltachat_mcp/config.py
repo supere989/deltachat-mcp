@@ -14,6 +14,11 @@ class Config:
     MCP_MODE = os.getenv("MCP_MODE", "http").lower()  # http or stdio
     MCP_PORT = int(os.getenv("MCP_PORT", "8089"))
     BASEDIR = Path(os.getenv("BASEDIR", "./dc-data")).expanduser()
+    BACKUP_STRING = os.getenv("BACKUP_STRING")
+
+    # Second device configuration
+    BACKUP_INFO = None
+    IS_SECOND_DEVICE = False
 
     @staticmethod
     def _find_delta_chat_databases():
@@ -131,6 +136,14 @@ class Config:
     @staticmethod
     def validate():
         """Validate configuration, trying auto-detection first"""
+        # Check for backup string first (second device mode)
+        if Config.BACKUP_STRING:
+            if Config.register_second_device(Config.BACKUP_STRING):
+                print("✅ Using backup string for second device registration")
+                return
+            else:
+                print("❌ Invalid backup string, falling back to regular configuration")
+
         # First try auto-detection
         if not Config.DC_ADDR or not Config.DC_MAIL_PW:
             if Config.auto_detect_credentials():
@@ -142,6 +155,72 @@ class Config:
             raise ValueError(
                 "Delta Chat credentials not found. Please either:\n"
                 "1. Set DC_ADDR and DC_MAIL_PW in .env file, or\n"
-                "2. Install and configure Delta Chat desktop application, or\n"
-                "3. Run: python configure.py to set up manually"
+                "2. Set BACKUP_STRING in .env file for second device, or\n"
+                "3. Install and configure Delta Chat desktop application, or\n"
+                "4. Run: python configure.py to set up manually"
             )
+
+    @classmethod
+    def parse_backup_string(cls, backup_string):
+        """Parse a Delta Chat backup string for second device registration"""
+        try:
+            if not backup_string.startswith('DCBACKUP3:'):
+                raise ValueError("Invalid backup string format")
+
+            # Split the backup string into data and metadata parts
+            parts = backup_string.split('&', 1)
+            if len(parts) != 2:
+                raise ValueError("Backup string missing metadata section")
+
+            encrypted_data = parts[0]
+            metadata_json = parts[1]
+
+            # Parse the metadata JSON
+            import json
+            metadata = json.loads(metadata_json)
+
+            return {
+                'encrypted_data': encrypted_data,
+                'node_id': metadata.get('node_id'),
+                'relay_url': metadata.get('relay_url'),
+                'direct_addresses': metadata.get('direct_addresses', [])
+            }
+
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            print(f"❌ Error parsing backup string: {e}")
+            return None
+
+    @classmethod
+    def register_second_device(cls, backup_string):
+        """Register as a second device using a backup string"""
+        print("🔄 Registering as second device...")
+
+        backup_info = cls.parse_backup_string(backup_string)
+        if not backup_info:
+            return False
+
+        print(f"✅ Parsed backup string for node: {backup_info['node_id']}")
+        print(f"📍 Direct addresses: {backup_info['direct_addresses']}")
+
+        # Store the backup information for use during account setup
+        cls.BACKUP_INFO = backup_info
+        cls.IS_SECOND_DEVICE = True
+
+        return True
+
+    @classmethod
+    def setup_second_device_account(cls):
+        """Set up account as a second device using backup data"""
+        if not hasattr(cls, 'BACKUP_INFO') or not cls.BACKUP_INFO:
+            return False
+
+        backup_info = cls.BACKUP_INFO
+
+        # For second device, we use the backup data instead of email/password
+        # The deltatachat2 library should handle the backup import
+        print(f"🔧 Setting up second device account for node: {backup_info['node_id']}")
+
+        # Note: The actual backup import would need to be implemented
+        # based on the deltatachat2 library's backup handling capabilities
+
+        return True

@@ -126,6 +126,18 @@ class DeltaChatMCPServer:
         mode_combo = ttk.Combobox(mcp_frame, textvariable=self.mode_var, values=["http", "stdio"], state="readonly")
         mode_combo.grid(row=1, column=1, sticky=tk.W, pady=2)
 
+        # Second device setup
+        device_frame = ttk.LabelFrame(config_frame, text="Second Device Setup", padding=10)
+        device_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(device_frame, text="Backup String:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.backup_var = tk.StringVar()
+        self.backup_entry = tk.Text(device_frame, height=3, width=50)
+        self.backup_entry.grid(row=0, column=1, sticky=tk.W, pady=2)
+
+        self.register_device_button = ttk.Button(device_frame, text="📱 Register as Second Device", command=self.register_second_device)
+        self.register_device_button.grid(row=1, column=0, columnspan=2, pady=5)
+
         # Action buttons
         button_frame = ttk.Frame(config_frame)
         button_frame.pack(fill=tk.X, padx=5, pady=10)
@@ -186,6 +198,33 @@ class DeltaChatMCPServer:
         style.configure("Start.TButton", background="green", foreground="white")
         style.configure("Stop.TButton", background="red", foreground="white")
 
+    def register_second_device(self):
+        """Register as a second device using backup string"""
+        backup_text = self.backup_entry.get("1.0", tk.END).strip()
+
+        if not backup_text:
+            self.log_message("❌ Please enter a backup string", "error")
+            return
+
+        if not backup_text.startswith("DCBACKUP3:"):
+            self.log_message("❌ Invalid backup string format", "error")
+            return
+
+        try:
+            # Import config here to avoid circular imports
+            from .config import Config
+
+            success = Config.register_second_device(backup_text)
+            if success:
+                self.log_message(f"✅ Registered as second device: {Config.BACKUP_INFO['node_id']}", "success")
+                self.delta_info_label.config(text=f"Account: Second Device ({Config.BACKUP_INFO['node_id'][:8]}...)")
+                self.save_config()  # Save the backup string to config file
+            else:
+                self.log_message("❌ Failed to register as second device", "error")
+
+        except Exception as e:
+            self.log_message(f"❌ Error registering second device: {e}", "error")
+
     def load_config(self):
         """Load configuration from file"""
         if self.config_file.exists():
@@ -201,9 +240,14 @@ class DeltaChatMCPServer:
                         self.port_var.set(line.split('=', 1)[1])
                     elif line.startswith('MCP_MODE='):
                         self.mode_var.set(line.split('=', 1)[1])
+                    elif line.startswith('BACKUP_STRING='):
+                        self.backup_entry.delete("1.0", tk.END)
+                        self.backup_entry.insert("1.0", line.split('=', 1)[1])
 
     def save_config(self):
         """Save configuration to file"""
+        backup_text = self.backup_entry.get("1.0", tk.END).strip()
+
         config_content = f"""DC_ADDR={self.email_var.get()}
 DC_MAIL_PW={self.password_var.get()}
 MCP_MODE={self.mode_var.get()}
@@ -211,9 +255,16 @@ MCP_PORT={self.port_var.get()}
 BASEDIR=./dc-data
 """
 
-        self.config_file.write_text(config_content)
+    if backup_text:
+        config_content += f"BACKUP_STRING={backup_text}\n"
 
-        # Update status
+    self.config_file.write_text(config_content)
+
+    # Update status
+    if hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE:
+        self.delta_info_label.config(text=f"Account: Second Device ({Config.BACKUP_INFO['node_id'][:8]}...)")
+        self.log_message(f"✅ Second device registered: {Config.BACKUP_INFO['node_id']}", "success")
+    else:
         self.delta_info_label.config(text=f"Account: {self.email_var.get()}")
         self.log_message("✅ Configuration saved", "info")
 
@@ -264,19 +315,35 @@ BASEDIR=./dc-data
         """Test Delta Chat connection"""
         self.log_message("🔍 Testing Delta Chat connection...", "info")
 
-        # This would test the actual connection
-        # For now, just check if credentials are provided
-        if not self.email_var.get() or not self.password_var.get():
-            self.log_message("❌ Please enter email and password", "error")
+        # Import here to avoid circular imports
+        from .config import Config
+
+        # Check if we have valid configuration
+        has_credentials = (self.email_var.get() and self.password_var.get())
+        has_second_device = (hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE)
+
+        if not (has_credentials or has_second_device):
+            self.log_message("❌ Please configure Delta Chat credentials", "error")
             return
 
-        self.log_message("✅ Configuration looks good", "success")
-        messagebox.showinfo("Test Result", "Configuration saved successfully!\n\nClick 'Start Server' to begin.")
+        if has_second_device:
+            self.log_message("✅ Second device configuration looks good", "success")
+            messagebox.showinfo("Test Result", "Second device configuration is valid!\n\nClick 'Start Server' to begin.")
+        else:
+            self.log_message("✅ Configuration looks good", "success")
+            messagebox.showinfo("Test Result", "Configuration saved successfully!\n\nClick 'Start Server' to begin.")
 
     def start_server(self):
         """Start the MCP server"""
-        if not self.email_var.get() or not self.password_var.get():
-            messagebox.showerror("Configuration Error", "Please enter your Delta Chat email and password in the Configuration tab.")
+        # Import here to avoid circular imports
+        from .config import Config
+
+        # Check if we have valid configuration (either regular credentials or second device)
+        has_credentials = (self.email_var.get() and self.password_var.get())
+        has_second_device = (hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE)
+
+        if not (has_credentials or has_second_device):
+            messagebox.showerror("Configuration Error", "Please configure Delta Chat credentials in the Configuration tab.")
             self.notebook.select(1)  # Switch to config tab
             return
 

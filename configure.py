@@ -70,11 +70,76 @@ def setup_environment():
         print("📝 Creating .env configuration file...")
 
         # Get user input for configuration
-        dc_addr = input("Enter your Delta Chat email address: ").strip()
-        dc_password = input("Enter your Delta Chat app password: ").strip()
-        mcp_port = input("Enter MCP server port (default 8089): ").strip() or "8089"
+        print("\n📋 Configuration Options:")
+        print("1) 🔍 Auto-detect from existing Delta Chat (recommended)")
+        print("2) 📧 Manual email/password setup")
+        print("3) 📱 Second device setup (using backup string)")
 
-        env_content = f"""DC_ADDR={dc_addr}
+        choice = input("\nSelect option (1-3): ").strip()
+
+        if choice == "3":
+            # Second device setup
+            print("\n📱 Second Device Setup")
+            print("Get the backup string from your primary Delta Chat device:")
+            print("1. On primary device: Settings → Add Second Device")
+            print("2. Copy the backup string that starts with 'DCBACKUP3:'")
+
+            backup_string = input("\nEnter backup string: ").strip()
+
+            if backup_string.startswith("DCBACKUP3:"):
+                env_content = f"""BACKUP_STRING={backup_string}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR=./dc-data
+"""
+                print("✅ Using backup string for second device registration")
+            else:
+                print("❌ Invalid backup string format. Expected 'DCBACKUP3:...'")
+                return False
+
+        elif choice == "1":
+            # Auto-detection
+            print("\n🔍 Attempting auto-detection...")
+            if Config and Config.DC_ADDR and Config.DC_MAIL_PW:
+                print(f"✅ Auto-detected: {Config.DC_ADDR}")
+                use_detected = input("Use auto-detected credentials? (Y/n): ").strip().lower()
+                if use_detected in ['', 'y', 'yes']:
+                    env_content = f"""DC_ADDR={Config.DC_ADDR}
+DC_MAIL_PW={Config.DC_MAIL_PW}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR={Config.BASEDIR}
+"""
+                    print("✅ Using auto-detected credentials")
+                else:
+                    print("📝 Please enter credentials manually:")
+                    dc_addr = input("Delta Chat email address: ").strip()
+                    dc_password = input("Delta Chat app password: ").strip()
+
+                    env_content = f"""DC_ADDR={dc_addr}
+DC_MAIL_PW={dc_password}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR=./dc-data
+"""
+            else:
+                print("❌ Auto-detection failed. Please enter credentials manually:")
+                dc_addr = input("Delta Chat email address: ").strip()
+                dc_password = input("Delta Chat app password: ").strip()
+
+                env_content = f"""DC_ADDR={dc_addr}
+DC_MAIL_PW={dc_password}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR=./dc-data
+"""
+
+        else:
+            # Manual setup (default)
+            dc_addr = input("Enter your Delta Chat email address: ").strip()
+            dc_password = input("Enter your Delta Chat app password: ").strip()
+
+            env_content = f"""DC_ADDR={dc_addr}
 DC_MAIL_PW={dc_password}
 MCP_MODE=http
 MCP_PORT={mcp_port}
@@ -234,6 +299,11 @@ def show_success_message():
         print("✅ Using auto-detected Delta Chat credentials")
         print(f"   Email: {Config.DC_ADDR}")
         print(f"   Data: {Config.BASEDIR}")
+    elif hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE:
+        print("✅ Using backup string for second device registration")
+        if hasattr(Config, 'BACKUP_INFO') and Config.BACKUP_INFO:
+            print(f"   Device ID: {Config.BACKUP_INFO['node_id']}")
+            print(f"   Direct addresses: {len(Config.BACKUP_INFO['direct_addresses'])} endpoints")
     else:
         print("✅ Manual configuration completed")
 

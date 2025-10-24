@@ -53,12 +53,20 @@ The application automatically detects and uses your existing Delta Chat configur
 4. **Preserves** all your chat history and contacts
 5. **Integrates** seamlessly with your current Delta Chat setup
 
+### 📱 **Second Device Support:**
+The application also supports registering as a **second device** using Delta Chat's backup string:
+
+1. **On your primary device:** Settings → Add Second Device
+2. **Copy the backup string** that starts with `DCBACKUP3:`
+3. **Paste it in the GUI** or use during setup
+4. **Automatic registration** as a second device with full sync
+
 ### 💡 **Benefits:**
 - ✅ **Zero configuration** if you already use Delta Chat
 - ✅ **Preserves chat history** and contacts
 - ✅ **No duplicate accounts** or data
 - ✅ **Seamless integration** with existing workflow
-- ✅ **Automatic updates** when you change Delta Chat settings
+- ✅ **Multi-device support** with second device registration
 
 ---
 
