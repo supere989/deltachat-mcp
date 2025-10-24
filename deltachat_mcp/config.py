@@ -16,9 +16,11 @@ class Config:
     BASEDIR = Path(os.getenv("BASEDIR", "./dc-data")).expanduser()
     BACKUP_STRING = os.getenv("BACKUP_STRING")
 
-    # Second device configuration
-    BACKUP_INFO = None
-    IS_SECOND_DEVICE = False
+    # Automatic pairing configuration
+    AUTO_PAIRING_ENABLED = os.getenv("AUTO_PAIRING_ENABLED", "true").lower() == "true"
+    AUTO_PAIRING_SCAN_INTERVAL = int(os.getenv("AUTO_PAIRING_SCAN_INTERVAL", "30"))
+    AUTO_PAIRING_TIMEOUT = int(os.getenv("AUTO_PAIRING_TIMEOUT", "15"))
+    AUTO_PAIRING_NETWORKS = os.getenv("AUTO_PAIRING_NETWORKS", "")  # Comma-separated list of networks to scan
 
     @staticmethod
     def _find_delta_chat_databases():
@@ -133,12 +135,40 @@ class Config:
         print("❌ No valid Delta Chat credentials found in existing databases")
         return False
 
-    @staticmethod
-    def validate():
+    @classmethod
+    def initialize_auto_pairing(cls):
+        """Initialize automatic pairing if enabled"""
+        if cls.AUTO_PAIRING_ENABLED:
+            try:
+                from .pairing import auto_pairing
+                auto_pairing.start_auto_pairing_service()
+                print("✅ Automatic pairing service started")
+                print(f"   Scan interval: {cls.AUTO_PAIRING_SCAN_INTERVAL}s")
+                print(f"   Connection timeout: {cls.AUTO_PAIRING_TIMEOUT}s")
+                return True
+            except Exception as e:
+                print(f"❌ Failed to start automatic pairing: {e}")
+                return False
+        else:
+            print("🔇 Automatic pairing disabled")
+            return False
+
+    @classmethod
+    def stop_auto_pairing(cls):
+        """Stop automatic pairing service"""
+        try:
+            from .pairing import auto_pairing
+            auto_pairing.stop_auto_pairing_service()
+            print("✅ Automatic pairing service stopped")
+        except Exception as e:
+            print(f"❌ Error stopping automatic pairing: {e}")
+
+    @classmethod
+    def validate(cls):
         """Validate configuration, trying auto-detection first"""
         # Check for backup string first (second device mode)
-        if Config.BACKUP_STRING:
-            if Config.register_second_device(Config.BACKUP_STRING):
+        if cls.BACKUP_STRING:
+            if cls.register_second_device(cls.BACKUP_STRING):
                 print("✅ Using backup string for second device registration")
                 return
             else:

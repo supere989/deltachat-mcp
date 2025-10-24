@@ -69,6 +69,10 @@ async def stdio_loop():
 
 async def main():
     Config.validate()
+
+    # Initialize automatic pairing service if enabled
+    Config.initialize_auto_pairing()
+
     rpc = DeltaChatRPC()
     await rpc.ensure_configured()
 

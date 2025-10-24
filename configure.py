@@ -50,9 +50,30 @@ def check_requirements():
     print("✅ All requirements satisfied")
     return True
 
+def check_deltachat_core():
+    """Check if Delta Chat core is available"""
+    print("🔍 Checking Delta Chat core installation...")
+
+    try:
+        from deltatachat2 import Rpc, Account
+        print("✅ Delta Chat core (deltachat2) available")
+        print("   Full pairing functionality enabled")
+        return True
+    except ImportError:
+        print("⚠️ Delta Chat core (deltachat2) not available")
+        print("💡 For full pairing functionality, install Delta Chat core:")
+        print("   pip install deltatachat2")
+        print("   or: pip install git+https://github.com/deltachat/deltachat-core-rust.git")
+        print()
+        print("🔄 System will work in fallback mode with limited functionality")
+        return False
+
 def setup_environment():
     """Set up the environment and configuration"""
     print("🔧 Setting up environment...")
+
+    # Default port for MCP server
+    mcp_port = "8089"
 
     # Try to auto-detect Delta Chat credentials first
     print("🔍 Checking for existing Delta Chat configuration...")
@@ -74,8 +95,9 @@ def setup_environment():
         print("1) 🔍 Auto-detect from existing Delta Chat (recommended)")
         print("2) 📧 Manual email/password setup")
         print("3) 📱 Second device setup (using backup string)")
+        print("4) 🔄 Automatic pairing mode (recommended for new installations)")
 
-        choice = input("\nSelect option (1-3): ").strip()
+        choice = input("\nSelect option (1-4): ").strip()
 
         if choice == "3":
             # Second device setup
@@ -134,6 +156,69 @@ MCP_PORT={mcp_port}
 BASEDIR=./dc-data
 """
 
+        elif choice == "4":
+            # Automatic pairing mode
+            print("\n🔄 Automatic Pairing Mode")
+            print("This mode will automatically discover and pair with running Delta Chat clients")
+            print("on your local network. Perfect for seamless integration!")
+
+            env_content = f"""# Automatic Pairing Configuration
+AUTO_PAIRING_ENABLED=true
+AUTO_PAIRING_SCAN_INTERVAL=30
+AUTO_PAIRING_TIMEOUT=15
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR=./dc-data
+
+# When a Delta Chat client is found and paired, these will be auto-configured:
+# DC_ADDR=auto-detected
+# DC_MAIL_PW=auto-detected
+# BACKUP_STRING=auto-detected
+"""
+
+            print("✅ Automatic pairing mode configured!")
+            print("   The system will automatically:")
+            print("   - Scan for running Delta Chat clients")
+            print("   - Monitor clipboard for backup strings")
+            print("   - Attempt pairing when clients are found")
+
+        elif choice == "1":
+            # Auto-detection
+            print("\n🔍 Attempting auto-detection...")
+            if Config and Config.DC_ADDR and Config.DC_MAIL_PW:
+                print(f"✅ Auto-detected: {Config.DC_ADDR}")
+                use_detected = input("Use auto-detected credentials? (Y/n): ").strip().lower()
+                if use_detected in ['', 'y', 'yes']:
+                    env_content = f"""DC_ADDR={Config.DC_ADDR}
+DC_MAIL_PW={Config.DC_MAIL_PW}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR={Config.BASEDIR}
+"""
+                    print("✅ Using auto-detected credentials")
+                else:
+                    print("📝 Please enter credentials manually:")
+                    dc_addr = input("Delta Chat email address: ").strip()
+                    dc_password = input("Delta Chat app password: ").strip()
+
+                    env_content = f"""DC_ADDR={dc_addr}
+DC_MAIL_PW={dc_password}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR=./dc-data
+"""
+            else:
+                print("❌ Auto-detection failed. Please enter credentials manually:")
+                dc_addr = input("Delta Chat email address: ").strip()
+                dc_password = input("Delta Chat app password: ").strip()
+
+                env_content = f"""DC_ADDR={dc_addr}
+DC_MAIL_PW={dc_password}
+MCP_MODE=http
+MCP_PORT={mcp_port}
+BASEDIR=./dc-data
+"""
+
         else:
             # Manual setup (default)
             dc_addr = input("Enter your Delta Chat email address: ").strip()
@@ -148,8 +233,6 @@ BASEDIR=./dc-data
 
         env_file.write_text(env_content)
         print(f"✅ Created .env file with your configuration")
-    else:
-        print("✅ .env file already exists")
 
     # Create dc-data directory
     dc_data_dir = Path("dc-data")
@@ -287,12 +370,21 @@ StartupNotify=true
     print("✅ Desktop integration complete!")
     print("   Find 'Delta Chat MCP Server' in your applications menu")
 
-def show_success_message():
+def show_success_message(core_available=False):
     """Show success message with next steps"""
     print("\n" + "="*50)
     print("🎉 SETUP COMPLETE!")
     print("="*50)
     print()
+
+    if core_available:
+        print("✅ Delta Chat core available - Full functionality enabled!")
+    else:
+        print("⚠️ Delta Chat core not available - Limited functionality")
+        print("💡 For full pairing functionality, install:")
+        print("   pip install deltatachat2")
+        print("   or: pip install git+https://github.com/deltachat/deltachat-core-rust.git")
+        print()
 
     # Check if we used auto-detection
     if Config and Config.DC_ADDR and Config.DC_MAIL_PW:
@@ -304,6 +396,11 @@ def show_success_message():
         if hasattr(Config, 'BACKUP_INFO') and Config.BACKUP_INFO:
             print(f"   Device ID: {Config.BACKUP_INFO['node_id']}")
             print(f"   Direct addresses: {len(Config.BACKUP_INFO['direct_addresses'])} endpoints")
+    elif hasattr(Config, 'AUTO_PAIRING_ENABLED') and Config.AUTO_PAIRING_ENABLED:
+        print("✅ Using automatic pairing mode")
+        print("   The system will automatically discover and connect to Delta Chat clients")
+        print(f"   Scan interval: {Config.AUTO_PAIRING_SCAN_INTERVAL}s")
+        print(f"   Connection timeout: {Config.AUTO_PAIRING_TIMEOUT}s")
     else:
         print("✅ Manual configuration completed")
 
@@ -326,6 +423,11 @@ def show_success_message():
     print("   - deltachat.get_unread_count()")
     print()
 
+    if not core_available:
+        print("⚠️  Note: Full pairing requires Delta Chat core installation")
+        print("   See installation instructions above")
+        print()
+
 def main():
     """Main setup function"""
     print("🌟 Delta Chat MCP Server - Easy Setup")
@@ -336,6 +438,9 @@ def main():
     if not check_requirements():
         print("❌ Requirements not met. Please install Python 3, pip, and git.")
         sys.exit(1)
+
+    # Check Delta Chat core
+    core_available = check_deltachat_core()
 
     # Setup environment
     setup_environment()
@@ -355,7 +460,7 @@ def main():
         create_desktop_integration()
 
     # Show success
-    show_success_message()
+    show_success_message(core_available)
 
     print("✅ Setup complete! Ready to use Delta Chat with AI tools!")
 

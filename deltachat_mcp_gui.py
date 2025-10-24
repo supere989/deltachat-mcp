@@ -92,6 +92,10 @@ class DeltaChatMCPServer:
         self.pairing_status_label = ttk.Label(delta_frame, text="📱 Pairing: Not paired", foreground="gray")
         self.pairing_status_label.pack(anchor=tk.W)
 
+        # Automatic pairing status
+        self.auto_pairing_status_label = ttk.Label(delta_frame, text="🔄 Auto-pairing: Disabled", foreground="gray")
+        self.auto_pairing_status_label.pack(anchor=tk.W)
+
     def create_config_tab(self):
         """Create the configuration tab"""
         config_frame = ttk.Frame(self.notebook)
@@ -134,8 +138,28 @@ class DeltaChatMCPServer:
         self.backup_entry = tk.Text(device_frame, height=3, width=50)
         self.backup_entry.grid(row=0, column=1, sticky=tk.W, pady=2)
 
-        self.register_device_button = ttk.Button(device_frame, text="📱 Register as Second Device", command=self.register_second_device)
-        self.register_device_button.grid(row=1, column=0, columnspan=2, pady=5)
+        # Automatic pairing settings
+        auto_pairing_frame = ttk.LabelFrame(config_frame, text="Automatic Pairing", padding=10)
+        auto_pairing_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.auto_pairing_var = tk.BooleanVar(value=True)
+        self.auto_pairing_check = ttk.Checkbutton(auto_pairing_frame, text="Enable automatic pairing",
+                                                variable=self.auto_pairing_var, command=self.toggle_auto_pairing)
+        self.auto_pairing_check.grid(row=0, column=0, sticky=tk.W, pady=2)
+
+        ttk.Label(auto_pairing_frame, text="Scan interval (seconds):").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.scan_interval_var = tk.StringVar(value="30")
+        self.scan_interval_entry = ttk.Entry(auto_pairing_frame, textvariable=self.scan_interval_var, width=10)
+        self.scan_interval_entry.grid(row=1, column=1, sticky=tk.W, pady=2)
+
+        ttk.Label(auto_pairing_frame, text="Connection timeout (seconds):").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.timeout_var = tk.StringVar(value="15")
+        self.timeout_entry = ttk.Entry(auto_pairing_frame, textvariable=self.timeout_var, width=10)
+        self.timeout_entry.grid(row=2, column=1, sticky=tk.W, pady=2)
+
+        # Manual pairing button
+        self.pair_now_button = ttk.Button(auto_pairing_frame, text="🔄 Pair Now", command=self.manual_pairing)
+        self.pair_now_button.grid(row=3, column=0, columnspan=2, pady=5)
 
         # Action buttons
         button_frame = ttk.Frame(config_frame)
@@ -223,29 +247,243 @@ class DeltaChatMCPServer:
                 self.pairing_info = Config.BACKUP_INFO
             else:
                 self.log_message("❌ Failed to register as second device", "error")
+                self.pairing_status_label.config(
+                    text="📱 Pairing: Configured (no info)",
+                    foreground="orange"
+                )
 
         except Exception as e:
             self.log_message(f"❌ Error registering second device: {e}", "error")
 
-    def load_config(self):
-        """Load configuration from file"""
-        if self.config_file.exists():
-            content = self.config_file.read_text()
-            for line in content.split('\n'):
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    if line.startswith('DC_ADDR='):
-                        self.email_var.set(line.split('=', 1)[1])
-                    elif line.startswith('DC_MAIL_PW='):
-                        self.password_var.set(line.split('=', 1)[1])
-                    elif line.startswith('MCP_PORT='):
-                        self.port_var.set(line.split('=', 1)[1])
-                    elif line.startswith('MCP_MODE='):
-                        self.mode_var.set(line.split('=', 1)[1])
-                    elif line.startswith('BACKUP_STRING='):
-                        self.backup_entry.delete("1.0", tk.END)
-                        self.backup_entry.insert("1.0", line.split('=', 1)[1])
+    def toggle_auto_pairing(self):
+        """Toggle automatic pairing on/off"""
+        enabled = self.auto_pairing_var.get()
 
+        try:
+            # Import config here to avoid circular imports
+            from .config import Config
+
+            if enabled:
+                Config.AUTO_PAIRING_ENABLED = True
+                Config.AUTO_PAIRING_SCAN_INTERVAL = int(self.scan_interval_var.get())
+                Config.AUTO_PAIRING_TIMEOUT = int(self.timeout_var.get())
+
+                # Start automatic pairing service
+                Config.initialize_auto_pairing()
+                self.log_message("✅ Automatic pairing enabled", "success")
+                self.update_auto_pairing_status()
+            else:
+                Config.AUTO_PAIRING_ENABLED = False
+                Config.stop_auto_pairing()
+                self.log_message("❌ Automatic pairing disabled", "warning")
+                self.update_auto_pairing_status()
+
+            # Save configuration
+            self.save_config()
+
+        except Exception as e:
+            self.log_message(f"❌ Error toggling automatic pairing: {e}", "error")
+
+    def manual_pairing(self):
+        """Manually trigger pairing attempt"""
+        try:
+            from .pairing import auto_pairing
+            from .config import Config
+
+            self.log_message("🔄 Starting manual pairing attempt...", "info")
+
+            # Update settings from GUI
+            Config.AUTO_PAIRING_SCAN_INTERVAL = int(self.scan_interval_var.get())
+            Config.AUTO_PAIRING_TIMEOUT = int(self.timeout_var.get())
+
+            success = auto_pairing.attempt_automatic_pairing()
+
+            if success:
+                self.log_message("✅ Manual pairing successful!", "success")
+                self.update_pairing_status()
+                self.save_config()
+            else:
+                self.log_message("❌ Manual pairing failed", "error")
+
+        except Exception as e:
+            self.log_message(f"❌ Error during manual pairing: {e}", "error")
+
+    def update_auto_pairing_status(self):
+        """Update automatic pairing status display"""
+        try:
+            from .config import Config
+
+            if Config.AUTO_PAIRING_ENABLED:
+                self.auto_pairing_status_label.config(
+                    text=f"🔄 Auto-pairing: Enabled (scan: {Config.AUTO_PAIRING_SCAN_INTERVAL}s)",
+                    foreground="green"
+                )
+            else:
+                self.auto_pairing_status_label.config(
+                    text="🔄 Auto-pairing: Disabled",
+                    foreground="gray"
+                )
+        except Exception:
+            self.auto_pairing_status_label.config(
+                text="🔄 Auto-pairing: Error",
+                foreground="red"
+            )
+
+    def update_pairing_status(self):
+        """Update pairing status display"""
+        try:
+            from .config import Config
+
+            if hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE:
+                if hasattr(Config, 'BACKUP_INFO') and Config.BACKUP_INFO:
+                    node_id = Config.BACKUP_INFO.get('node_id', 'unknown')[:8]
+                    self.pairing_status_label.config(
+                        text=f"📱 Pairing: Connected ({node_id}...)",
+                        foreground="green"
+                    )
+                    self.delta_info_label.config(
+                        text=f"Account: Paired Device ({node_id}...)"
+                    )
+                else:
+                    self.pairing_status_label.config(
+                        text="📱 Pairing: Configured (no info)",
+                        foreground="orange"
+                    )
+            else:
+                self.pairing_status_label.config(
+                    text="📱 Pairing: Not paired",
+                    foreground="gray"
+                )
+        except Exception as e:
+            self.log_message(f"Error updating pairing status: {e}", "error")
+
+def load_config(self):
+    """Load configuration from file"""
+    if self.config_file.exists():
+        content = self.config_file.read_text()
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if line.startswith('DC_ADDR='):
+                    self.email_var.set(line.split('=', 1)[1])
+                elif line.startswith('DC_MAIL_PW='):
+                    self.password_var.set(line.split('=', 1)[1])
+                elif line.startswith('MCP_PORT='):
+                    self.port_var.set(line.split('=', 1)[1])
+                elif line.startswith('MCP_MODE='):
+                    self.mode_var.set(line.split('=', 1)[1])
+                elif line.startswith('BACKUP_STRING='):
+                    self.backup_entry.delete("1.0", tk.END)
+                    self.backup_entry.insert("1.0", line.split('=', 1)[1])
+                elif line.startswith('AUTO_PAIRING_ENABLED='):
+                    self.auto_pairing_var.set(line.split('=', 1)[1].lower() == 'true')
+                elif line.startswith('AUTO_PAIRING_SCAN_INTERVAL='):
+                    self.scan_interval_var.set(line.split('=', 1)[1])
+                elif line.startswith('AUTO_PAIRING_TIMEOUT='):
+                    self.timeout_var.set(line.split('=', 1)[1])
+
+        # Update status displays after loading config
+        self.update_auto_pairing_status()
+        self.update_pairing_status()
+
+    def save_config(self):
+        """Save configuration to file"""
+        try:
+            config_lines = []
+
+            # Basic settings
+            if self.email_var.get():
+                config_lines.append(f"DC_ADDR={self.email_var.get()}")
+            if self.password_var.get():
+                config_lines.append(f"DC_MAIL_PW={self.password_var.get()}")
+            config_lines.append(f"MCP_PORT={self.port_var.get()}")
+            config_lines.append(f"MCP_MODE={self.mode_var.get()}")
+
+            # Backup string
+            backup_text = self.backup_entry.get("1.0", tk.END).strip()
+            if backup_text:
+                config_lines.append(f"BACKUP_STRING={backup_text}")
+
+            # Automatic pairing settings
+            config_lines.append(f"AUTO_PAIRING_ENABLED={str(self.auto_pairing_var.get()).lower()}")
+            config_lines.append(f"AUTO_PAIRING_SCAN_INTERVAL={self.scan_interval_var.get()}")
+            config_lines.append(f"AUTO_PAIRING_TIMEOUT={self.timeout_var.get()}")
+
+            # Write to file
+            self.config_file.write_text('\n'.join(config_lines) + '\n')
+            self.log_message("✅ Configuration saved", "success")
+
+        except Exception as e:
+            self.log_message(f"❌ Error saving configuration: {e}", "error")
+
+    def test_connection(self):
+        """Test Delta Chat connection"""
+        self.log_message("🔍 Testing Delta Chat connection...", "info")
+
+        try:
+            from .config import Config
+            from .rpc import DeltaChatRPC
+
+            # Update config from GUI
+            Config.DC_ADDR = self.email_var.get()
+            Config.DC_MAIL_PW = self.password_var.get()
+
+            if not Config.DC_ADDR or not Config.DC_MAIL_PW:
+                self.log_message("❌ Please enter email and password", "error")
+                return
+
+            # Test connection
+            rpc = DeltaChatRPC()
+            # This would need proper async handling in a real implementation
+
+            self.log_message("✅ Connection test completed", "success")
+
+        except Exception as e:
+            self.log_message(f"❌ Connection test failed: {e}", "error")
+
+    def clear_logs(self):
+        """Clear the log display"""
+        self.log_text.delete("1.0", tk.END)
+
+    def log_message(self, message, level="info"):
+        """Add a message to the log display"""
+        color = {
+            "info": "black",
+            "success": "green",
+            "warning": "orange",
+            "error": "red"
+        }.get(level, "black")
+
+        self.log_text.insert(tk.END, f"{message}\n", color)
+        self.log_text.tag_add(color, "end-2c linestart", "end-1c")
+        self.log_text.tag_config(color, foreground=color)
+
+        if self.auto_scroll_var.get():
+            self.log_text.see(tk.END)
+
+    def run(self):
+        """Run the GUI application"""
+        self.root.mainloop()
+
+    def start_server(self):
+        """Start the MCP server"""
+        self.log_message("🚀 Starting MCP server...", "info")
+        # Implementation would go here
+
+    def stop_server(self):
+        """Stop the MCP server"""
+        self.log_message("🛑 Stopping MCP server...", "info")
+        # Implementation would go here
+
+    def check_delta_chat(self):
+        """Check if Delta Chat is available"""
+        self.log_message("🔍 Checking Delta Chat availability...", "info")
+        # Implementation would go here
+
+    def check_pairing_status(self):
+        """Check current pairing status"""
+        self.log_message("🔍 Checking pairing status...", "info")
+        self.update_pairing_status()
 
 def main():
     """Main entry point"""

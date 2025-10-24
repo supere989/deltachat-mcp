@@ -86,20 +86,33 @@ The application automatically detects and uses your existing Delta Chat configur
 4. **Preserves** all your chat history and contacts
 5. **Integrates** seamlessly with your current Delta Chat setup
 
-### 📱 **Second Device Pairing:**
-The application supports **active pairing** with Delta Chat desktop clients:
+### 🔄 **Automatic Pairing (Updated Implementation)**
+The system now uses the **proper Delta Chat core backup import** instead of manual WebSocket handshakes:
 
-1. **On Primary Device:** Settings → Add Second Device → Generate backup string
-2. **Copy the backup string** starting with `DCBACKUP3:`
-3. **In MCP GUI:** Configuration tab → Paste backup string → "Register as Second Device"
-4. **Complete pairing** - establishes WebSocket connection and handshake
-5. **Sync data** - automatically syncs chats and contacts from primary device
+**What was fixed:**
+- ❌ **Before**: Manual WebSocket connections and custom pairing handshake
+- ✅ **After**: Uses Delta Chat core's `imex.import_backup()` RPC method
+- ✅ **Result**: Proper handling of complete pairing payload as intended
 
-**🔧 Pairing Process:**
-- ✅ **WebSocket Connection** to primary device endpoints
-- ✅ **Handshake Authentication** using node_id verification
-- ✅ **Multi-device Sync** with real-time data synchronization
-- ✅ **Secure Connection** via encrypted WebSocket protocol
+**How it works:**
+1. **Parse backup string** to extract encrypted data and metadata
+2. **Call Delta Chat core** `rpc.imex.import_backup(encrypted_data)`
+3. **Core handles pairing** automatically using the complete pairing payload
+4. **No manual connections** needed - everything handled by Delta Chat core
+
+**Setup Requirements:**
+```bash
+# Install Delta Chat core (required for full functionality)
+pip install deltachat2
+
+# Or install from source (requires Rust)
+pip install git+https://github.com/deltachat/deltachat-core-rust.git
+```
+
+**Fallback Mode:**
+- If Delta Chat core is not available, system falls back to basic configuration
+- Full pairing functionality requires proper Delta Chat core installation
+- Clear error messages guide users to install missing dependencies
 
 ---
 
@@ -114,6 +127,7 @@ python configure.py
 
 That's it! The setup script will:
 - ✅ **Auto-detect existing Delta Chat credentials** from your local installation
+- ✅ **Offer automatic pairing mode** for seamless integration
 - ✅ Install all dependencies
 - ✅ Create Windsurf configuration
 - ✅ Generate launcher script
@@ -123,6 +137,21 @@ That's it! The setup script will:
 ```bash
 deltachat-gui  # Launch the desktop application!
 ```
+
+**⚠️ For Full Functionality:**
+The automatic pairing requires Delta Chat core installation:
+```bash
+# Install Delta Chat core for full pairing functionality
+pip install deltatachat2
+
+# Alternative (requires Rust toolchain)
+pip install git+https://github.com/deltachat/deltachat-core-rust.git
+```
+
+**Without Delta Chat Core:**
+- Basic functionality works with fallback mode
+- Full pairing requires proper Delta Chat core installation
+- Clear error messages guide installation process
 
 ---
 

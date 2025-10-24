@@ -1,55 +1,39 @@
 #!/bin/bash
-# Delta Chat MCP Server - Development Launcher
-# Starts the MCP server directly (standalone Delta Chat architecture)
+# Delta Chat MCP Server Launcher
 
-BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "🚀 Delta Chat MCP Server (Development)"
-echo "======================================"
+echo "🚀 Starting Delta Chat MCP Server..."
 echo ""
 
-# Check if configured
+# Check if .env exists
 if [ ! -f ".env" ]; then
-    echo "🔧 Configuration needed!"
-    echo "Run: python configure.py"
-    echo ""
-    echo "Or create .env file manually with:"
-    echo "DC_ADDR=your-email@example.com"
-    echo "DC_MAIL_PW=your-app-password"
-    echo "MCP_MODE=http"
-    echo "MCP_PORT=8089"
-    echo "BASEDIR=./dc-data"
+    echo "❌ .env file not found!"
+    echo "Please run: python configure.py"
     exit 1
 fi
 
-# Load configuration
+# Load environment variables
 set -a
 source .env
 set +a
 
-# Create data directory
-mkdir -p "$BASEDIR"
-
 echo "📧 Delta Chat: $DC_ADDR"
 echo "🌐 MCP Mode: $MCP_MODE"
-echo "🔌 Port: $MCP_PORT"
-echo "📁 Data: $BASEDIR"
+echo "🔌 MCP Port: $MCP_PORT"
 echo ""
 
-# Check dependencies
-echo "🔍 Checking dependencies..."
-python3 -c "import deltachat_mcp, mcp, aiohttp, dotenv" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "📦 Installing dependencies..."
-    pip install -r requirements.txt
-fi
+# Start Delta Chat RPC server in background
+echo "🔄 Starting Delta Chat RPC server..."
+deltachat-rpc-server --addr "$DC_ADDR" --mail_pw "$DC_MAIL_PW" &
+RPC_PID=$!
 
-echo "🚀 Starting MCP server..."
-echo ""
-echo "MCP Server will be available at: http://127.0.0.1:$MCP_PORT"
-echo ""
-echo "Press Ctrl+C to stop"
-echo ""
+# Wait a moment for RPC to start
+sleep 2
 
-# Start the server directly (creates its own Delta Chat instance)
-exec python3 -m deltachat_mcp.server
+# Start MCP server
+echo "🔌 Starting MCP server on port $MCP_PORT..."
+python -m deltachat_mcp.server
+
+# Cleanup on exit
+echo ""
+echo "🛑 Shutting down..."
+kill $RPC_PID 2>/dev/null
