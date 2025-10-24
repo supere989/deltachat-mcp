@@ -126,6 +126,72 @@ pytest
 
 ---
 
-## License
+## 🚀 Deployment Options
 
-MIT © 2025
+### 📦 **Portable Bundle (Recommended)**
+*Smallest and easiest - just download and run!*
+
+```bash
+# Download and extract
+wget https://github.com/supere989/deltachat-mcp/releases/download/v0.2.0/deltachat-mcp-portable-0.2.0.tar.gz
+tar -xzf deltachat-mcp-portable-0.2.0.tar.gz
+cd deltachat-mcp-portable-0.2.0
+
+# First-time setup
+python configure.py
+
+# Start server
+./run.sh
+```
+
+**Size:** ~7KB | **Requirements:** Python 3 + Delta Chat RPC server
+
+### 🖥️ **AppImage (Advanced)**
+*Self-contained application for any Linux distribution*
+
+```bash
+# Download AppImage
+wget https://github.com/supere989/deltachat-mcp/releases/download/v0.2.0/deltachat-mcp-0.2.0-x86_64.AppImage
+
+# Make executable and run
+chmod +x deltachat-mcp-0.2.0-x86_64.AppImage
+./deltachat-mcp-0.2.0-x86_64.AppImage
+```
+
+**Size:** ~50MB | **Requirements:** None (self-contained)
+
+### 🐍 **PyPI Installation**
+*Traditional Python package installation*
+
+```bash
+pip install deltachat-mcp
+deltachat-setup
+deltachat-mcp serve
+```
+
+**Size:** Minimal | **Requirements:** Python environment
+
+### 🔧 **Build from Source**
+
+```bash
+# Clone and setup
+git clone https://github.com/supere989/deltachat-mcp.git
+cd deltachat-mcp
+python configure.py
+
+# Or build distributions
+./build-distribution.sh  # Creates all formats
+./build-portable.sh     # Creates portable tarball only
+```
+
+### 🔧 **Build Scripts Available**
+
+- **`./configure.py`** - Interactive setup wizard
+- **`./build-portable.sh`** - Create portable tarball
+- **`./build-appimage.sh`** - Create AppImage (requires PyInstaller)
+- **`./build-distribution.sh`** - Create all distribution formats
+- **`./launch.sh`** - Development server launcher
+
+---
+
+## License
