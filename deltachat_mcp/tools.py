@@ -1,6 +1,8 @@
 # deltachat_mcp/tools.py
-from deltatachat2 import Account
-from typing import List, Dict
+from typing import TYPE_CHECKING, List, Dict
+
+if TYPE_CHECKING:
+    from deltachat2 import Account
 from .rpc import DeltaChatRPC
 
 async def send_message(params: dict) -> dict:
