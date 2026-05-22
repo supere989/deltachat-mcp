@@ -3,7 +3,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from deltatachat2 import Account
+    from deltachat2 import Account
 
 from .config import Config
 
@@ -14,27 +14,31 @@ class DeltaChatRPC:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             try:
-                from deltatachat2 import Rpc, Account
+                from deltachat2 import Rpc, Account
                 cls._instance.rpc = Rpc()
                 cls._instance.account = Account(cls._instance.rpc, 1)
                 print("✅ Delta Chat core initialized successfully")
             except ImportError:
-                print("❌ deltatachat2 not available - install with: pip install deltatachat2")
-                # Create a mock account object for type checking
+                print("❌ deltachat2 not available - install with: pip install deltachat2")
                 class MockAccount:
                     def __init__(self, rpc, account_id):
                         self.rpc = rpc
                         self.id = account_id
                         self._configured = False
+                        self._io_running = False
 
                     def is_configured(self):
                         return self._configured
+
+                    def is_io_running(self):
+                        return self._io_running
 
                     async def configure(self, addr, mail_pw, basedir):
                         self._configured = True
                         print(f"⚠️ Using mock configuration for {addr}")
 
                     async def start_io(self):
+                        self._io_running = True
                         print("⚠️ Using mock IO start")
 
                     async def get_chats(self):
@@ -109,7 +113,7 @@ class DeltaChatRPC:
 
             # Try to import using Delta Chat core
             try:
-                from deltatachat2 import Rpc, Account
+                from deltachat2 import Rpc, Account
                 print("✅ Delta Chat core available, importing backup...")
 
                 # Create RPC connection
@@ -133,9 +137,9 @@ class DeltaChatRPC:
                     return await self._fallback_backup_import(backup_info)
 
             except ImportError:
-                print("❌ deltatachat2 not available")
+                print("❌ deltachat2 not available")
                 print("💡 To fix this issue:")
-                print("   1. Install Delta Chat core: pip install deltatachat2")
+                print("   1. Install Delta Chat core: pip install deltachat2")
                 print("   2. Or install from source: pip install git+https://github.com/deltachat/deltachat-core-rust.git")
                 print("   3. Make sure you have Rust installed for compilation")
                 print()
