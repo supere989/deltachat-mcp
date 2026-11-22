@@ -1,188 +1,217 @@
-# deltachat_mcp/rpc.py
-import asyncio
-from typing import TYPE_CHECKING
+"""Own one Delta Chat core process and serialize its operations off the MCP loop."""
 
-if TYPE_CHECKING:
-    from deltachat2 import Account
+import logging
+import os
+import subprocess
+import sys
+import time
+from collections import Counter
+from pathlib import Path
+from threading import Event
 
-from .config import Config
+import anyio
+from deltachat2 import EnteredLoginParam, IOTransport, JsonRpcError, QrBackup2, Rpc
+
+LOG = logging.getLogger(__name__)
+RPC_TIMEOUT = 15
+SETUP_TIMEOUT = 120
+SETUP_METHODS = {"add_or_update_transport", "get_backup"}
+
+
+class CoreError(RuntimeError):
+    """A user-facing core error whose message contains no RPC payload."""
+
+
+class PendingResponse:
+    def __init__(self):
+        self.ready = Event()
+        self.value = None
+
+    def set(self, value):
+        self.value = value
+        self.ready.set()
+
+
+class CoreTransport(IOTransport):
+    """Bound waits around the SDK's request queue so a dead core cannot hang MCP."""
+
+    def __init__(self, accounts_dir: Path, audit):
+        env = os.environ.copy()
+        env.pop("DC_MAIL_PW", None)
+        env.pop("BACKUP_STRING", None)
+        binary = "deltachat-rpc-server.exe" if os.name == "nt" else "deltachat-rpc-server"
+        installed_binary = Path(sys.executable).with_name(binary)
+        if installed_binary.is_file() and os.access(installed_binary, os.X_OK):
+            binary = str(installed_binary)
+        super().__init__(
+            accounts_dir=str(accounts_dir),
+            rpc_executable=binary,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
+        self.audit = audit
+        self.failed = False
+
+    def call(self, method, *args):
+        if self.failed or self.process.poll() is not None:
+            self.failed = True
+            self.audit("core_unavailable")
+            raise CoreError("Delta Chat core is unavailable")
+        request_id = next(self.id_iterator)
+        pending = self.pending_results[request_id] = PendingResponse()
+        deadline = time.monotonic() + (SETUP_TIMEOUT if method in SETUP_METHODS else RPC_TIMEOUT)
+        self.request_queue.put({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+            "params": args,
+        })
+
+        while not pending.ready.wait(0.1):
+            if self.process.poll() is not None or not (
+                self.reader_thread.is_alive() and self.writer_thread.is_alive()
+            ):
+                self.failed = True
+                self.audit("core_disconnected")
+                raise CoreError("Delta Chat core disconnected")
+            if time.monotonic() >= deadline:
+                # A mutating call may already have taken effect. Fail closed and
+                # require a new core process before accepting another operation.
+                self.failed = True
+                self.audit("core_timeout")
+                raise CoreError("Delta Chat core timed out. Restart the server before retrying.")
+
+        response = pending.value
+        if "error" in response:
+            raise JsonRpcError("Delta Chat core rejected the operation")
+        return response.get("result")
+
+    def close(self):
+        try:
+            if not self.failed and self.process.poll() is None:
+                try:
+                    self.call("stop_io_for_all_accounts")
+                except (JsonRpcError, CoreError):
+                    self.audit("core_stop_failed")
+        finally:
+            self.request_queue.put(None)
+            if self.failed and self.process.poll() is None:
+                self.process.terminate()
+            self.writer_thread.join(timeout=2)
+            if not self.writer_thread.is_alive() and self.process.stdin:
+                self.process.stdin.close()
+            try:
+                self.process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.audit("core_force_stop")
+                self.process.kill()
+                self.process.wait(timeout=3)
+            self.reader_thread.join(timeout=2)
+            self.writer_thread.join(timeout=2)
+            if self.reader_thread.is_alive() or self.writer_thread.is_alive():
+                self.audit("core_thread_pending")
+            elif self.process.stdout:
+                self.process.stdout.close()
+            self.pending_results.clear()
+
 
 class DeltaChatRPC:
-    _instance = None
+    def __init__(self, accounts_dir: Path, address=None, password=None, backup=None):
+        self.accounts_dir = accounts_dir
+        self.address = address
+        self.password = password
+        self.backup = backup
+        self._transport = None
+        self._rpc = None
+        self._account_id = None
+        self._lock = anyio.Lock()
+        self.counts = Counter()
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            try:
-                from deltachat2 import Rpc, Account
-                cls._instance.rpc = Rpc()
-                cls._instance.account = Account(cls._instance.rpc, 1)
-                print("✅ Delta Chat core initialized successfully")
-            except ImportError:
-                print("❌ deltachat2 not available - install with: pip install deltachat2")
-                class MockAccount:
-                    def __init__(self, rpc, account_id):
-                        self.rpc = rpc
-                        self.id = account_id
-                        self._configured = False
-                        self._io_running = False
+    def audit(self, outcome: str):
+        self.counts[outcome] += 1
+        LOG.info("%s count=%d", outcome, self.counts[outcome])
 
-                    def is_configured(self):
-                        return self._configured
+    def _start(self):
+        accounts_dir = self.accounts_dir.resolve()
+        accounts_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        transport = CoreTransport(accounts_dir, self.audit)
+        # The SDK can otherwise log malformed responses including RPC input.
+        transport.logger.disabled = True
+        try:
+            transport.start()
+        except OSError:
+            raise CoreError("Could not start deltachat-rpc-server") from None
+        self._transport = transport
+        rpc = Rpc(transport)
 
-                    def is_io_running(self):
-                        return self._io_running
+        account_ids = rpc.get_all_account_ids()
+        if len(account_ids) > 1:
+            raise CoreError("Use a dedicated directory containing at most one Delta Chat account")
+        if self.backup and (self.address or self.password):
+            raise CoreError("Select one account configuration method")
+        if not account_ids and not (self.backup or (self.address and self.password)):
+            raise CoreError("Provide DC_ADDR and DC_MAIL_PW, BACKUP_STRING, or a configured account directory")
+        account_id = account_ids[0] if account_ids else rpc.add_account()
 
-                    async def configure(self, addr, mail_pw, basedir):
-                        self._configured = True
-                        print(f"⚠️ Using mock configuration for {addr}")
-
-                    async def start_io(self):
-                        self._io_running = True
-                        print("⚠️ Using mock IO start")
-
-                    async def get_chats(self):
-                        return []
-
-                    async def get_chat_by_id(self, chat_id):
-                        return None
-
-                    async def create_contact(self, addr):
-                        return None
-
-                    async def create_chat(self, contact):
-                        return None
-
-                cls._instance.rpc = None
-                cls._instance.account = MockAccount(None, 1)
-                print("✅ Using mock Delta Chat account (limited functionality)")
-
-            cls._instance.loop = asyncio.get_event_loop()
-        return cls._instance
-
-    async def ensure_configured(self):
-        if not self.account.is_configured():
-            # Check if this is a second device setup
-            if hasattr(Config, 'IS_SECOND_DEVICE') and Config.IS_SECOND_DEVICE:
-                # For second device, we need to import backup data
-                await self._setup_second_device()
-            else:
-                # Regular account setup with email/password
-                await self.account.configure(
-                    addr=Config.DC_ADDR,
-                    mail_pw=Config.DC_MAIL_PW,
-                    basedir=Config.BASEDIR
+        configured = rpc.is_configured(account_id)
+        if configured and self.backup:
+            raise CoreError("Use an unconfigured account directory for a second-device transfer")
+        if configured and self.address:
+            configured_address = rpc.get_account_info(account_id).addr
+            if not configured_address or configured_address.casefold() != self.address.casefold():
+                raise CoreError("DC_ADDR does not match the configured account")
+        if not configured:
+            if self.backup:
+                if not isinstance(rpc.check_qr(account_id, self.backup), QrBackup2):
+                    raise CoreError("BACKUP_STRING must be an Add Second Device QR")
+                rpc.get_backup(account_id, self.backup)
+            elif self.address and self.password:
+                rpc.add_or_update_transport(
+                    account_id, EnteredLoginParam(addr=self.address, password=self.password)
                 )
+            else:
+                raise CoreError("The selected account directory is not configured")
 
-        if not self.account.is_io_running():
-            await self.account.start_io()
+        if not rpc.is_configured(account_id):
+            raise CoreError("Delta Chat account configuration did not complete")
+        rpc.start_io(account_id)
+        self._rpc = rpc
+        self._account_id = account_id
 
-    async def _setup_second_device(self):
-        """Set up account as a second device using backup string"""
-        if not hasattr(Config, 'BACKUP_INFO') or not Config.BACKUP_INFO:
-            # Try automatic pairing if no backup info available
-            from .pairing import auto_pairing
-            if Config.AUTO_PAIRING_ENABLED and not auto_pairing.paired_info:
-                print("🔄 Attempting automatic pairing for second device...")
-                success = auto_pairing.attempt_automatic_pairing()
-                if success:
-                    Config.BACKUP_INFO = auto_pairing.paired_info
-                    Config.IS_SECOND_DEVICE = True
-                else:
-                    print("❌ Automatic pairing failed, falling back to manual setup")
-
-            if not hasattr(Config, 'BACKUP_INFO') or not Config.BACKUP_INFO:
-                raise ValueError("No backup information available for second device setup")
-
-        backup_info = Config.BACKUP_INFO
-        print(f"🔧 Setting up second device: {backup_info['node_id']}")
-
-        # Import backup using Delta Chat core instead of manual WebSocket
-        await self._import_backup_data(backup_info)
-
-    async def _import_backup_data(self, backup_info):
-        """Import backup data using Delta Chat core RPC methods"""
+    async def start(self):
+        self.audit("startup_requested")
         try:
-            # Get the encrypted backup data from the backup string
-            encrypted_data = backup_info.get('encrypted_data')
-            if not encrypted_data:
-                raise ValueError("No encrypted backup data found")
+            await anyio.to_thread.run_sync(self._start)
+        except (JsonRpcError, OSError):
+            self.audit("startup_failed")
+            raise CoreError("Could not open or configure the Delta Chat account") from None
+        except BaseException:
+            self.audit("startup_failed")
+            raise
+        finally:
+            self.password = None
+            self.backup = None
+        self.audit("startup_succeeded")
 
-            print(f"📦 Importing backup data for node: {backup_info['node_id']}")
-            print(f"🔐 Encrypted data length: {len(encrypted_data)} characters")
+    async def run(self, operation, params):
+        if self._lock.locked():
+            self.audit("tool_queued")
+        async with self._lock:
+            if self._rpc is None:
+                raise CoreError("Delta Chat core is unavailable")
+            return await anyio.to_thread.run_sync(operation, self._rpc, self._account_id, params)
 
-            # Try to import using Delta Chat core
-            try:
-                from deltachat2 import Rpc, Account
-                print("✅ Delta Chat core available, importing backup...")
-
-                # Create RPC connection
-                rpc = Rpc()
-
-                # The proper way to import backup string
-                # According to Delta Chat docs, this should use the imex module
-                if hasattr(rpc, 'imex') and hasattr(rpc.imex, 'import_backup'):
-                    print("🔄 Using Delta Chat core backup import...")
-                    # Call the proper backup import method
-                    result = await rpc.imex.import_backup(encrypted_data)
-                    print(f"✅ Backup import result: {result}")
-
-                    # The Delta Chat core should handle the pairing automatically
-                    print("🔄 Delta Chat core will handle pairing automatically")
-                    self.is_paired = True
-                    self.pairing_data = backup_info
-                    return True
+    async def close(self):
+        with anyio.CancelScope(shield=True):
+            async with self._lock:
+                if self._transport is None:
+                    return
+                self._rpc = None
+                self._account_id = None
+                transport, self._transport = self._transport, None
+                try:
+                    await anyio.to_thread.run_sync(transport.close)
+                except (OSError, subprocess.TimeoutExpired):
+                    self.audit("shutdown_failed")
                 else:
-                    print("⚠️ Backup import method not available, falling back to manual setup")
-                    return await self._fallback_backup_import(backup_info)
-
-            except ImportError:
-                print("❌ deltachat2 not available")
-                print("💡 To fix this issue:")
-                print("   1. Install Delta Chat core: pip install deltachat2")
-                print("   2. Or install from source: pip install git+https://github.com/deltachat/deltachat-core-rust.git")
-                print("   3. Make sure you have Rust installed for compilation")
-                print()
-                print("🔄 Falling back to manual setup...")
-                return await self._fallback_backup_import(backup_info)
-
-            except Exception as e:
-                print(f"❌ Error during backup import: {e}")
-                print("💡 This might indicate the backup string format or RPC setup")
-                return False
-
-        except Exception as e:
-            print(f"❌ Error setting up second device: {e}")
-            print("💡 This indicates missing Delta Chat core installation")
-            return False
-
-    async def _fallback_backup_import(self, backup_info):
-        """Fallback method when Delta Chat core is not available"""
-        try:
-            print("🔄 Using fallback backup import method...")
-            print(f"📋 Backup info: {backup_info}")
-
-            # For now, configure the account with the node_id
-            # This is not ideal but provides basic functionality
-            await self.account.configure(
-                addr=backup_info['node_id'],
-                mail_pw="",
-                basedir=Config.BASEDIR
-            )
-
-            print(f"✅ Fallback configuration completed for: {backup_info['node_id']}")
-            print("⚠️ Full pairing functionality requires Delta Chat core installation")
-
-            # Mark as configured
-            self.is_paired = True
-            self.pairing_data = backup_info
-
-            return True
-
-        except Exception as e:
-            print(f"❌ Fallback backup import failed: {e}")
-            return False
-
-    def get_account(self):
-        """Get the Delta Chat account instance"""
-        return self.account
+                    self.audit("shutdown_succeeded")
