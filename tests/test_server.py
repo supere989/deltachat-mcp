@@ -8,7 +8,7 @@ from pathlib import Path
 import anyio
 import httpx2
 import pytest
-from deltachat2 import IOTransport, Rpc
+from deltachat2 import IOTransport, Rpc, SpecialContactId
 from mcp import Client, StdioServerParameters
 
 from deltachat_mcp.rpc import CoreError, DeltaChatRPC
@@ -47,6 +47,8 @@ def configured_env(isolated_env):
         account_id = rpc.add_account()
         rpc.set_config(account_id, "configured_addr", "test@example.invalid")
         assert rpc.is_configured(account_id)
+        assert rpc.get_config(account_id, "force_encryption") == "1"
+        assert rpc.lookup_contact_id_by_addr(account_id, "test@example.invalid") == SpecialContactId.SELF
     return isolated_env
 
 
@@ -73,6 +75,11 @@ async def test_stdio_console_script_reads_native_core(configured_env, mode):
             assert wire["structuredContent"] == {"chats": []}
             invalid = await client.call_tool("send_message", {"text": ""})
             assert invalid.model_dump(by_alias=True)["isError"]
+            missing_key = await client.call_tool(
+                "send_message", {"addr": "unknown@example.invalid", "text": "test"}
+            )
+            assert missing_key.is_error
+            assert "SecureJoin QR code" in missing_key.content[0].text
 
 
 @pytest.mark.anyio

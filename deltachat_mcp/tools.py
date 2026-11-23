@@ -14,6 +14,47 @@ def chat_id_from(params: dict) -> int:
     return chat_id
 
 
+def contact_id_for_address(rpc: Rpc, account_id: int, address: str) -> int:
+    # Match Core's address normalization, including mailto: and Unicode
+    # lowercase. Case folding would also conflate addresses Core distinguishes.
+    normalized = address.strip().lower().removeprefix("mailto:")
+    if normalized.startswith("mailto:") or not rpc.check_email_validity(normalized):
+        raise ToolInputError("Provide a valid email address")
+    # Only trust the reserved ID from this lookup. For other addresses it can
+    # return an arbitrary contact when several keys share the same address.
+    if rpc.lookup_contact_id_by_addr(account_id, normalized) == SpecialContactId.SELF:
+        return SpecialContactId.SELF
+
+    contacts = rpc.get_contacts(account_id, 0, normalized)
+    blocked = [
+        contact for contact in rpc.get_blocked_contacts(account_id)
+        if contact.address.lower() == normalized
+    ]
+    keys = [
+        contact for contact in contacts
+        if contact.is_key_contact and contact.address.lower() == normalized
+    ]
+    keys.extend(contact for contact in blocked if contact.is_key_contact)
+    if len(keys) > 1:
+        raise ToolInputError("Multiple key contacts match this address. Choose a chat_id.")
+    if keys:
+        contact = keys[0]
+        if contact.is_blocked:
+            raise ToolInputError("The matching contact is blocked")
+        if not contact.e2ee_avail:
+            raise ToolInputError("The contact's encryption key is missing. Complete SecureJoin in Delta Chat first.")
+        return contact.id
+
+    if blocked:
+        raise ToolInputError("The matching contact is blocked")
+    if rpc.get_config(account_id, "force_encryption") != "0":
+        raise ToolInputError(
+            "No encryption key is available for this address. "
+            "Scan the contact's SecureJoin QR code in Delta Chat, then retry with the address or chat_id."
+        )
+    return rpc.create_contact(account_id, normalized, None)
+
+
 def send_message(rpc: Rpc, account_id: int, params: dict) -> dict:
     text = params.get("text")
     if not isinstance(text, str) or not text:
@@ -24,7 +65,7 @@ def send_message(rpc: Rpc, account_id: int, params: dict) -> dict:
             raise ToolInputError("Provide either addr or chat_id")
         chat_id = chat_id_from(params)
     elif isinstance(address, str) and address.strip():
-        contact_id = rpc.create_contact(account_id, address, None)
+        contact_id = contact_id_for_address(rpc, account_id, address)
         chat_id = rpc.create_chat_by_contact_id(account_id, contact_id)
     else:
         raise ToolInputError("Provide either addr or chat_id")
