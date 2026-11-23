@@ -13,6 +13,13 @@ Chat account. The server starts a native Delta Chat core and offers four tools.
 | `get_messages` | Read the most recent 20 messages in a chat |
 | `get_unread_count` | Count unread messages across chats |
 
+Sending by address uses a unique matching contact with an available encryption
+key. If the account requires encryption and the contact has no usable key,
+scan the contact's SecureJoin QR code in Delta Chat before retrying. If more
+than one key contact matches, choose the intended chat with `chat_id`.
+Addresses without a key contact use classic mail only when the account allows it.
+Sending to one of your own configured addresses opens Saved Messages.
+
 ## Install
 
 With Python 3.11 or newer in an activated virtual environment, run
