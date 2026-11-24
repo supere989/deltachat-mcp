@@ -139,10 +139,14 @@ async def test_closed_native_core_does_not_stall(configured_env):
     core = DeltaChatRPC(Path(configured_env["DC_ACCOUNTS"]))
     try:
         await core.start()
-        process = core._transport.process
-        process.terminate()
-        await anyio.to_thread.run_sync(process.wait, 3)
+        transport = core._transport
+        process = transport.process
+        # Simulate a dead Core without depending on its graceful shutdown latency.
+        process.kill()
+        assert await anyio.to_thread.run_sync(process.wait, 3) != 0
         with anyio.fail_after(3), pytest.raises(CoreError, match="core is unavailable"):
             await core.run(get_unread_count, {})
     finally:
         await core.close()
+    assert not transport.reader_thread.is_alive()
+    assert not transport.writer_thread.is_alive()

@@ -1,0 +1,21 @@
+[Unit]
+Description=Hermes Delta Chat MCP gateway (%i)
+Requires=deltachat-mcpd@%i.service
+After=deltachat-mcpd@%i.service
+PartOf=deltachat-mcpd@%i.service
+
+[Service]
+Type=exec
+EnvironmentFile=%h/.config/deltachat-mcpd/%i/gateway.env
+Environment=DELTACHAT_MCP_RELEASE=%h/.local/share/deltachat-mcpd/%i/current
+StateDirectory=deltachat-mcpd/%i
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/bin/sh %h/.local/share/deltachat-mcpd/%i/current/systemd/run-instance gateway
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=45s
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

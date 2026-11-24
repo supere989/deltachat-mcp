@@ -1,0 +1,4 @@
+# Chatmail Core v2.53.0. This pins the x86-64 Linux release input independently
+# of the Python server's dependency declaration.
+deltachat-rpc-server==2.53.0 \
+    --hash=sha256:5d87ab664667f4a8e0926aa0e6428efe88fb37fb30a17abe00a9d777675e0cd0
