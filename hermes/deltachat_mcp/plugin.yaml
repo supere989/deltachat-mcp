@@ -1,0 +1,4 @@
+name: deltachat
+version: 0.1.0
+description: Encrypted Delta Chat direct messages over a local MCP server
+kind: platform

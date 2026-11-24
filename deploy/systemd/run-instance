@@ -1,0 +1,59 @@
+#!/bin/sh
+set -eu
+
+release=$(realpath -- "${DELTACHAT_MCP_RELEASE:?release directory is required}")
+state=$(realpath -- "${STATE_DIRECTORY:?service state directory is required}")
+credential=${CREDENTIALS_DIRECTORY:-}/deltachat-bearer
+unset DELTACHAT_MCP_TOKEN DELTACHAT_MCP_TOKEN_FILE
+if [ -n "${CREDENTIALS_DIRECTORY:-}" ] && [ -r "$credential" ]; then
+    export DELTACHAT_MCP_TOKEN_FILE="$credential"
+else
+    key=$(keyctl search @u user "${DELTACHAT_MCP_KEY_DESCRIPTION:?staging credential name is required}")
+    DELTACHAT_MCP_TOKEN=$(keyctl pipe "$key")
+    export DELTACHAT_MCP_TOKEN
+fi
+
+case "${1:?service mode is required}" in
+    daemon)
+        : "${DELTACHAT_MCP_ACCOUNT_ID:?configured account ID is required}"
+        case "${DELTACHAT_MCP_LISTEN:?loopback address and port are required}" in
+            127.0.0.1:*) ;;
+            *) echo 'Delta Chat MCP service requires an IPv4 loopback bind' >&2; exit 1 ;;
+        esac
+        accounts=$(realpath -e -- "$state/accounts")
+        if [ "$accounts" != "$state/accounts" ]; then
+            echo 'Delta Chat account directory must be inside instance state' >&2
+            exit 1
+        fi
+        if [ -n "${DELTACHAT_MCP_TOKEN_FILE:-}" ]; then
+            set -- --token-file "$DELTACHAT_MCP_TOKEN_FILE"
+        else
+            set -- --token-env DELTACHAT_MCP_TOKEN
+        fi
+        exec "$release/bin/deltachat-mcpd" \
+            --listen "$DELTACHAT_MCP_LISTEN" \
+            --rpc-bin "$release/bin/deltachat-rpc-server" \
+            --accounts-dir "$accounts" \
+            --account-id "$DELTACHAT_MCP_ACCOUNT_ID" "$@"
+        ;;
+    gateway)
+        : "${HERMES_PYTHON:?Hermes environment's Python is required}"
+        : "${HERMES_SOURCE:?Hermes installation directory is required}"
+        unset DELTACHAT_ACCOUNTS_DIR PYTHONHOME
+        export HERMES_HOME="$state/hermes"
+        export DELTACHAT_MCP_STATE_DIR="$state/adapter"
+        if [ "$(realpath -e -- "$HERMES_HOME")" != "$HERMES_HOME" ] ||
+            [ "$(realpath -e -- "$DELTACHAT_MCP_STATE_DIR")" != "$DELTACHAT_MCP_STATE_DIR" ]; then
+            echo 'Hermes profile and adapter directories must be inside instance state' >&2
+            exit 1
+        fi
+        export HOME="$HERMES_HOME"
+        export XDG_CONFIG_HOME="$HOME/.config" XDG_CACHE_HOME="$HOME/.cache"
+        export XDG_DATA_HOME="$HOME/.local/share" XDG_STATE_HOME="$HOME/.local/state"
+        export HERMES_GATEWAY_LOCK_DIR="$DELTACHAT_MCP_STATE_DIR/gateway-locks"
+        export PYTHONPATH="$HERMES_SOURCE"
+        cd "$HERMES_HOME"
+        exec "$HERMES_PYTHON" -m hermes_cli.main gateway run
+        ;;
+    *) echo 'unknown Delta Chat MCP service mode' >&2; exit 2 ;;
+esac

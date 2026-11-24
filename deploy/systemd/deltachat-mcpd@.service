@@ -1,0 +1,19 @@
+[Unit]
+Description=Delta Chat MCP daemon (%i)
+
+[Service]
+Type=exec
+EnvironmentFile=%h/.config/deltachat-mcpd/%i/daemon.env
+Environment=DELTACHAT_MCP_RELEASE=%h/.local/share/deltachat-mcpd/%i/current
+StateDirectory=deltachat-mcpd/%i
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/bin/sh %h/.local/share/deltachat-mcpd/%i/current/systemd/run-instance daemon
+Restart=on-failure
+RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=20s
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target
